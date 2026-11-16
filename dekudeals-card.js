@@ -268,6 +268,7 @@ class DekuDealsCard extends HTMLElement {
       action: active.dataset?.action || "",
       copy: active.dataset?.copy || "",
       view: active.dataset?.view || "",
+      collectionType: active.dataset?.collectionType || "",
       layout: active.dataset?.layout || "",
       resolution: active.dataset?.resolution || "",
       selectionStart: typeof active.selectionStart === "number" ? active.selectionStart : null,
@@ -316,13 +317,15 @@ class DekuDealsCard extends HTMLElement {
       target = [...this.shadowRoot.querySelectorAll("[data-action]")].find(
         (element) => element.dataset.action === focus.action &&
           (!focus.view || element.dataset.view === focus.view) &&
+          (!focus.collectionType || element.dataset.collectionType === focus.collectionType) &&
           (!focus.layout || element.dataset.layout === focus.layout) &&
           (!focus.resolution || element.dataset.resolution === focus.resolution)
       );
     }
     if (!target && focus.view) {
       target = [...this.shadowRoot.querySelectorAll("[data-view]")].find(
-        (element) => element.dataset.view === focus.view
+        (element) => element.dataset.view === focus.view &&
+          (!focus.collectionType || element.dataset.collectionType === focus.collectionType)
       );
     }
     if (!target && focus.layout) {
