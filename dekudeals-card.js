@@ -108,7 +108,7 @@ class DekuDealsCard extends HTMLElement {
     const unavailable = !collection || !inventory;
     const cards = filtered.map((item) => {
       const title = esc(item.name || "Untitled game");
-      const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="" />` : '<div class="no-art">🎮</div>';
+      const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />` : '<div class="no-art">Cover art unavailable</div>';
       const description = this._config.show_descriptions && item.description
         ? `<p class="description">${esc(item.description)}</p>` : "";
       return `<article class="game">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
@@ -117,7 +117,7 @@ class DekuDealsCard extends HTMLElement {
       const loan = copy.active_loan;
       const badge = loan ? `<span class="pill loan">With ${esc(loan.borrower)}</span>` :
         copy.needs_review ? '<span class="pill warn">Needs review</span>' : '<span class="pill">In possession</span>';
-      const art = isHttps(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="" loading="lazy">` : '<span class="thumb blank">🎮</span>';
+      const art = isHttps(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="${esc(copy.game)} cover art" loading="lazy">` : '<span class="thumb blank">No art</span>';
       return `<div class="copy-row">${art}<div class="copy-main"><strong>${esc(copy.game)}</strong><small>${esc(copy.platform)} · ${badge}</small>${loan?.due_date ? `<small>Due ${esc(loan.due_date)}</small>` : ""}</div>${loan ? `<button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button>` : `<button data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>${this._selectedCopy === copy.copy_id ? "Selected" : "Select"}</button>`}</div>`;
     }).join("");
     const loanRows = lent.map((copy) => `<div class="loan-row"><div><strong>${esc(copy.game)}</strong><small>Borrowed by ${esc(copy.active_loan.borrower)} · ${copy.active_loan.due_date ? `Due ${esc(copy.active_loan.due_date)}` : "No due date"}</small></div><button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button></div>`).join("");
@@ -179,10 +179,10 @@ class DekuDealsCard extends HTMLElement {
           <div class="panel">
             <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform"><option ${this._newPlatform === "Switch" ? "selected" : ""}>Switch</option><option ${this._newPlatform === "Switch 2" ? "selected" : ""}>Switch 2</option><option ${this._newPlatform === "Unknown" ? "selected" : ""}>Unknown</option></select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
             <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
-            ${copyRows || '<div class="empty">No physical copies are registered yet.</div>'}
+            ${copyRows.length ? copyRows : '<div class="empty">No physical copies are registered yet. Register one above to get started.</div>'}
           </div>
-        ` : this._view === "loans" ? '<div class="panel">' + (loanRows || '<div class="empty">No games are currently lent out.</div>') + '</div>'
-        : '<div class="panel">' + (reviewRows || '<div class="empty">Nothing needs review.</div>') + '</div>'}
+        ` : this._view === "loans" ? '<div class="panel">' + (loanRows.length ? loanRows : '<div class="empty">No games are currently lent out.</div>') + '</div>'
+        : '<div class="panel">' + (reviewRows.length ? reviewRows : '<div class="empty">Nothing needs review.</div>') + '</div>'}
       </ha-card>`;
     this.shadowRoot.removeEventListener("click", this._boundClick);
     this.shadowRoot.removeEventListener("input", this._boundInput);
@@ -205,6 +205,10 @@ class DekuDealsCard extends HTMLElement {
     if (target.id === "due-date") this._dueDate = target.value;
     if (target.id === "new-game") this._newGame = target.value;
     if (target.id === "new-platform") this._newPlatform = target.value;
+    const registerButton = this.shadowRoot.querySelector('[data-action="register"]');
+    if (registerButton) registerButton.disabled = !this._newGame.trim() || this._busy;
+    const lendButton = this.shadowRoot.querySelector('[data-action="lend-selected"]');
+    if (lendButton) lendButton.disabled = !this._selectedCopy || !this._borrower.trim() || this._busy;
   }
   async _call(service, data) {
     if (!this._hass) return;
@@ -253,7 +257,8 @@ class DekuDealsCardEditor extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         .field{display:block;margin:10px 0}.field span{display:block;margin-bottom:4px;color:var(--secondary-text-color);font-size:.9rem}
-        input{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:6px;background:var(--card-background-color);color:var(--primary-text-color)}
+        input:not([type="checkbox"]){box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:6px;background:var(--card-background-color);color:var(--primary-text-color)}
+        .toggle{display:flex;align-items:center;gap:8px;margin:12px 0}.toggle input{width:auto}
       </style>
       <label class="field"><span>Collection sensor entity (must expose items)</span><input name="collection_entity" value="${esc(this._config.collection_entity)}" placeholder="sensor.dekudeals_games"></label>
       <label class="field"><span>Physical inventory sensor (must expose copies)</span><input name="inventory_entity" value="${esc(this._config.inventory_entity)}" placeholder="sensor.dekudeals_total_physical_copies"></label>
@@ -262,9 +267,12 @@ class DekuDealsCardEditor extends HTMLElement {
       <label class="field"><span>Optional needs-review count sensor</span><input name="needs_review_entity" value="${esc(this._config.needs_review_entity)}" placeholder="sensor.dekudeals_inventory_needs_review"></label>
       <label class="field"><span>Optional unmatched count sensor</span><input name="unmatched_entity" value="${esc(this._config.unmatched_entity)}" placeholder="sensor.dekudeals_unmatched_physical_games"></label>
       <label class="field"><span>Optional integration config entry ID (for multiple collections)</span><input name="config_entry_id" value="${esc(this._config.config_entry_id)}"></label>
-      <label class="field"><span>Card title</span><input name="title" value="${esc(this._config.title || "DekuDeals Collection")}"></label>`;
+      <label class="field"><span>Card title</span><input name="title" value="${esc(this._config.title || "DekuDeals Collection")}"></label>
+      <label class="toggle"><input type="checkbox" name="show_inventory" ${this._config.show_inventory !== false ? "checked" : ""}> Show My Copies, Loans, and Review tabs</label>
+      <label class="toggle"><input type="checkbox" name="show_descriptions" ${this._config.show_descriptions !== false ? "checked" : ""}> Show game descriptions when available</label>`;
     this.shadowRoot.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
-      const config = { ...this._config, [input.name]: input.value };
+      const value = input.type === "checkbox" ? input.checked : input.value;
+      const config = { ...this._config, [input.name]: value };
       this._config = config;
       this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
     }));
