@@ -1,6 +1,12 @@
 # DekuDeals Card for Home Assistant
 
-A responsive Lovelace custom card for the [DekuDeals Home Assistant integration](https://github.com/kraroed/ha-dekudeals). Browse your imported game collection with cover art and descriptions, and keep an eye on physical copies, active loans, overdue returns, and inventory review items.\n\n![DekuDeals integration icon](https://raw.githubusercontent.com/kraroed/ha-dekudeals/main/custom_components/dekudeals/brand/icon.png)\n\n![DekuDeals Card preview](docs/card-preview.svg)
+A responsive Lovelace custom card for the [DekuDeals Home Assistant integration](https://github.com/kraroed/ha-dekudeals). Browse your imported game collection with cover art and descriptions, and keep an eye on physical copies, active loans, overdue returns, and inventory review items.
+
+**Upcoming release: 0.5.0**
+
+![DekuDeals integration icon](https://raw.githubusercontent.com/kraroed/ha-dekudeals/main/custom_components/dekudeals/brand/icon.png)
+
+![DekuDeals Card preview](docs/card-preview.svg)
 
 ## Features
 
