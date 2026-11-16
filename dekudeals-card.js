@@ -384,15 +384,18 @@ class DekuDealsCard extends HTMLElement {
     if (lendButton) lendButton.disabled = !this._selectedCopy || !this._borrower.trim() || this._busy;
   }
   async _call(service, data) {
-    if (!this._hass) return;
+    if (!this._hass) return false;
     this._busy = true; this._render();
+    let succeeded = false;
     try {
       await this._hass.callService("dekudeals", service, { ...data, ...(this._config.config_entry_id ? { config_entry_id: this._config.config_entry_id } : {}) });
       this._error = "";
+      succeeded = true;
     } catch (error) {
       console.error("DekuDeals card service call failed", error);
       this._error = error?.message || "The service call failed. Check Home Assistant logs and service configuration.";
     } finally { this._busy = false; this._render(); }
+    return succeeded;
   }
   async _handleClick(event) {
     const button = event.target.closest("button");
@@ -420,8 +423,11 @@ class DekuDealsCard extends HTMLElement {
     if (button.dataset.action === "resolve") { await this._call("resolve_inventory_match", { copy_id: copyId, resolution: button.dataset.resolution }); return; }
     if (button.dataset.action === "lend-selected") {
       if (!this._selectedCopy || !this._borrower.trim()) return;
-      await this._call("lend_game", { copy_id: this._selectedCopy, borrower: this._borrower.trim(), ...(this._dueDate ? { due_date: this._dueDate } : {}) });
-      this._borrower = ""; this._dueDate = ""; this._selectedCopy = null; this._render(); return;
+      const succeeded = await this._call("lend_game", { copy_id: this._selectedCopy, borrower: this._borrower.trim(), ...(this._dueDate ? { due_date: this._dueDate } : {}) });
+      if (succeeded) {
+        this._borrower = ""; this._dueDate = ""; this._selectedCopy = null;
+      }
+      this._render(); return;
     }
     if (copyId) { this._selectedCopy = copyId; this._render(); }
   }
