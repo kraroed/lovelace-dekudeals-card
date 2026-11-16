@@ -4,6 +4,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
 const isHttps = (value) => typeof value === "string" && /^https:\/\//i.test(value);
+const platformKey = (value) => String(value || "Unknown").trim().toLocaleLowerCase();
 
 class DekuDealsCard extends HTMLElement {
   constructor() {
@@ -55,7 +56,19 @@ class DekuDealsCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    const entityIds = [
+      this._config.collection_entity, this._config.inventory_entity,
+      this._config.lent_out_entity, this._config.overdue_entity,
+      this._config.needs_review_entity, this._config.unmatched_entity,
+    ].filter(Boolean);
+    const signature = entityIds.map((id) => {
+      const state = hass?.states?.[id];
+      return `${id}:${state?.state ?? ""}:${state?.last_updated ?? ""}`;
+    }).join("|");
+    if (signature !== this._lastHassSignature) {
+      this._lastHassSignature = signature;
+      this._render();
+    }
   }
 
   get hass() { return this._hass; }
@@ -77,16 +90,14 @@ class DekuDealsCard extends HTMLElement {
     const number = Number(raw);
     return Number.isFinite(number) ? number : fallback;
   }
-  _itemPlatform(item) { return String(item.platform || "Unknown").toLowerCase(); }
+  _itemPlatform(item) { return platformKey(item.platform); }
   _itemFormat(item) { return String(item.format || "unknown").toLowerCase(); }
   _filteredItems() {
     return this._items().filter((item) => {
       const title = String(item.name || "").toLowerCase();
       const matchesQuery = !this._query || title.includes(this._query.toLowerCase());
       const platform = this._itemPlatform(item);
-      const matchesPlatform = this._platform === "all"
-        || (this._platform === "switch" && platform === "switch")
-        || (this._platform === "switch2" && platform === "switch 2");
+      const matchesPlatform = this._platform === "all" || platform === this._platform;
       const matchesFormat = this._format === "all" || this._itemFormat(item) === this._format;
       const isDlc = item.item_type === "dlc";
       const matchesType = this._collectionType === "dlc" ? isDlc : !isDlc;
@@ -96,11 +107,21 @@ class DekuDealsCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._config.collection_entity) return;
+    const renderState = this._captureRenderState();
     const collection = this._state(this._config.collection_entity);
     const inventory = this._state(this._config.inventory_entity);
     const items = this._items();
+    const platforms = [...new Set(items.map((item) => String(item.platform || "Unknown").trim() || "Unknown"))]
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }));
+    if (platforms.length && !platforms.some((platform) => platformKey(platform) === platformKey(this._newPlatform))) {
+      this._newPlatform = platforms[0];
+    }
+    const platformOptions = platforms.map((platform) =>
+      `<option value="${esc(platformKey(platform))}">${esc(platform)}</option>`
+    ).join("");
     const copies = this._copies();
     const filtered = this._filteredItems();
+    const displayItems = items.filter((item) => this._collectionType === "dlc" ? item.item_type === "dlc" : item.item_type !== "dlc");
     const gameCount = items.filter((item) => item.item_type !== "dlc").length;
     const dlcCount = items.length - gameCount;
     const lent = copies.filter((copy) => copy.active_loan);
@@ -121,11 +142,11 @@ class DekuDealsCard extends HTMLElement {
       const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />` : '<div class="no-art">Cover art unavailable</div>';
       const description = this._config.show_descriptions && item.description
         ? `<p class="description">${esc(item.description)}</p>` : "";
-      return `<article class="game">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
+      return `<article class="game" data-name="${esc(String(item.name || "").toLocaleLowerCase())}" data-platform="${esc(platformKey(item.platform))}" data-format="${esc(String(item.format || "unknown").toLocaleLowerCase())}" data-type="${item.item_type === "dlc" ? "dlc" : "game"}">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
     };
-    const cards = filtered.map(renderGameCard).join("");
+    const cards = displayItems.map(renderGameCard).join("");
     const groupedItems = new Map();
-    filtered.forEach((item) => {
+    displayItems.forEach((item) => {
       const raw = this._collapsedGrouping === "alphabetical" ? (String(item.name || "").trim().charAt(0).toUpperCase().match(/[A-Z]/) || ["#"])[0] : (String(item.platform || "Unknown").trim() || "Unknown");
       if (!groupedItems.has(raw)) groupedItems.set(raw, []);
       groupedItems.get(raw).push(item);
@@ -201,14 +222,14 @@ class DekuDealsCard extends HTMLElement {
           <div class="toolbar"><input id="search" type="search" placeholder="Search ${this._collectionType === "dlc" ? "DLC" : "games"}…" value="${esc(this._query)}">
             <div class="view-switch" role="group" aria-label="Collection view"><button data-layout="grid" class="${this._layout === "grid" ? "active" : ""}">Grid</button><button data-layout="carousel" class="${this._layout === "carousel" ? "active" : ""}">Carousel</button><button data-layout="collapsed" class="${this._layout === "collapsed" ? "active" : ""}">Collapsed</button></div>
             ${this._layout === "collapsed" ? `<select id="collapsed-grouping" aria-label="Group collapsed items"><option value="platform" ${this._collapsedGrouping === "platform" ? "selected" : ""}>Group by platform</option><option value="alphabetical" ${this._collapsedGrouping === "alphabetical" ? "selected" : ""}>Group A–Z</option></select>` : ""}
-            <select id="platform"><option value="all">All platforms</option><option value="switch" ${this._platform === "switch" ? "selected" : ""}>Switch</option><option value="switch2" ${this._platform === "switch2" ? "selected" : ""}>Switch 2</option></select>
+            <select id="platform"><option value="all">All platforms</option>${platformOptions.replace(/value="([^"]+)"/g, (match, value) => `value="${value}" ${this._platform === value ? "selected" : ""}`)}</select>
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
-          ${filtered.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') : '<div class="empty">No items match these filters.</div>'}
-          <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown · Cover art and descriptions are supplied by the integration.</div>
+          ${displayItems.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') + '<div class="empty" data-filter-empty hidden>No items match these filters.</div>' : '<div class="empty">No items in this collection view.</div>'}
+          <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}<span data-filter-count>${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown</span> · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
-            <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform"><option ${this._newPlatform === "Switch" ? "selected" : ""}>Switch</option><option ${this._newPlatform === "Switch 2" ? "selected" : ""}>Switch 2</option><option ${this._newPlatform === "Unknown" ? "selected" : ""}>Unknown</option></select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
+            <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform">${platforms.map((platform) => `<option value="${esc(platform)}" ${platformKey(this._newPlatform) === platformKey(platform) ? "selected" : ""}>${esc(platform)}</option>`).join("") || '<option value="Unknown">Unknown</option>'}</select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
             <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
             ${copyRows.length ? copyRows : '<div class="empty">No physical copies are registered yet. Register one above to get started.</div>'}
           </div>
@@ -229,6 +250,7 @@ class DekuDealsCard extends HTMLElement {
           </div>`
         : '<div class="panel">' + (reviewRows.length ? reviewRows : '<div class="empty">Nothing needs review.</div>') + '</div>'}
       </ha-card>`;
+    this._restoreRenderState(renderState);
     this.shadowRoot.removeEventListener("click", this._boundClick);
     this.shadowRoot.removeEventListener("input", this._boundInput);
     this.shadowRoot.removeEventListener("change", this._boundInput);
@@ -236,16 +258,120 @@ class DekuDealsCard extends HTMLElement {
     this.shadowRoot.addEventListener("input", this._boundInput);
     this.shadowRoot.addEventListener("change", this._boundInput);
     this._ensureCopySelection(copies);
+    if (this._view === "collection") this._applyCollectionFilters();
+  }
+
+  _captureRenderState() {
+    const active = this.shadowRoot.activeElement;
+    const focus = active && active !== this.shadowRoot ? {
+      id: active.id || "",
+      action: active.dataset?.action || "",
+      copy: active.dataset?.copy || "",
+      view: active.dataset?.view || "",
+      collectionType: active.dataset?.collectionType || "",
+      layout: active.dataset?.layout || "",
+      resolution: active.dataset?.resolution || "",
+      selectionStart: typeof active.selectionStart === "number" ? active.selectionStart : null,
+      selectionEnd: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
+    } : null;
+    const scroll = [...this.shadowRoot.querySelectorAll("nav,.carousel")].map((element) => ({
+      key: element.matches("nav") ? "nav" : "carousel",
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    }));
+    const expanded = [...this.shadowRoot.querySelectorAll(".collapsed-group")].map((group) => ({
+      name: group.querySelector("summary strong")?.textContent || "",
+      open: group.open,
+    }));
+    return { focus, scroll, expanded };
+  }
+
+  _restoreRenderState(state) {
+    if (!state) return;
+    for (const position of state.scroll || []) {
+      const element = position.key === "nav"
+        ? this.shadowRoot.querySelector("nav")
+        : this.shadowRoot.querySelector(".carousel");
+      if (element) {
+        element.scrollLeft = position.left;
+        element.scrollTop = position.top;
+      }
+    }
+    if (state.expanded?.length) {
+      const openGroups = new Set(state.expanded.filter((group) => group.open).map((group) => group.name));
+      for (const group of this.shadowRoot.querySelectorAll(".collapsed-group")) {
+        const name = group.querySelector("summary strong")?.textContent || "";
+        group.open = openGroups.has(name);
+      }
+    }
+    const focus = state.focus;
+    if (!focus) return;
+    let target = focus.id ? this.shadowRoot.getElementById(focus.id) : null;
+    if (!target && focus.copy) {
+      target = [...this.shadowRoot.querySelectorAll("[data-copy]")].find(
+        (element) => element.dataset.copy === focus.copy &&
+          (!focus.action || element.dataset.action === focus.action)
+      );
+    }
+    if (!target && focus.action) {
+      target = [...this.shadowRoot.querySelectorAll("[data-action]")].find(
+        (element) => element.dataset.action === focus.action &&
+          (!focus.view || element.dataset.view === focus.view) &&
+          (!focus.collectionType || element.dataset.collectionType === focus.collectionType) &&
+          (!focus.layout || element.dataset.layout === focus.layout) &&
+          (!focus.resolution || element.dataset.resolution === focus.resolution)
+      );
+    }
+    if (!target && focus.view) {
+      target = [...this.shadowRoot.querySelectorAll("[data-view]")].find(
+        (element) => element.dataset.view === focus.view &&
+          (!focus.collectionType || element.dataset.collectionType === focus.collectionType)
+      );
+    }
+    if (!target && focus.layout) {
+      target = [...this.shadowRoot.querySelectorAll("[data-layout]")].find(
+        (element) => element.dataset.layout === focus.layout
+      );
+    }
+    if (target) {
+      target.focus({ preventScroll: true });
+      if (focus.selectionStart !== null && typeof target.setSelectionRange === "function") {
+        try { target.setSelectionRange(focus.selectionStart, focus.selectionEnd); } catch (_) { /* Unsupported input type. */ }
+      }
+    }
   }
 
   _ensureCopySelection(copies) {
     if (this._selectedCopy && !copies.some((copy) => copy.copy_id === this._selectedCopy)) this._selectedCopy = null;
   }
+  _applyCollectionFilters() {
+    const cards = [...this.shadowRoot.querySelectorAll(".game")];
+    let visible = 0;
+    for (const card of cards) {
+      const matchesQuery = !this._query || card.dataset.name.includes(this._query.toLocaleLowerCase());
+      const matchesPlatform = this._platform === "all" || card.dataset.platform === this._platform;
+      const matchesFormat = this._format === "all" || card.dataset.format === this._format;
+      const matchesType = card.dataset.type === this._collectionType;
+      card.hidden = !(matchesQuery && matchesPlatform && matchesFormat && matchesType);
+      if (!card.hidden) visible += 1;
+    }
+    for (const group of this.shadowRoot.querySelectorAll(".collapsed-group")) {
+      const groupCount = group.querySelectorAll(".game:not([hidden])").length;
+      group.hidden = groupCount === 0;
+      const count = group.querySelector("summary span");
+      if (count) count.textContent = `${groupCount} ${this._collectionType === "dlc" ? "DLC items" : "games"}`;
+    }
+    const foot = this.shadowRoot.querySelector("[data-filter-count]");
+    if (foot) foot.textContent = `${visible} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown`;
+    const empty = this.shadowRoot.querySelector("[data-filter-empty]");
+    if (empty) empty.hidden = visible > 0;
+  }
+
   _handleInput(event) {
     const target = event.target;
-    if (target.id === "search") { this._query = target.value; this._render(); const input = this.shadowRoot.getElementById("search"); input?.focus(); input?.setSelectionRange(this._query.length, this._query.length); }
-    if (target.id === "platform") { this._platform = target.value; this._render(); }
-    if (target.id === "format") { this._format = target.value; this._render(); }
+    if (target.id === "search") { this._query = target.value; this._applyCollectionFilters(); }
+    if (target.id === "platform") { this._platform = target.value; this._applyCollectionFilters(); }
+    if (target.id === "format") { this._format = target.value; this._applyCollectionFilters(); }
     if (target.id === "collapsed-grouping") { this._collapsedGrouping = target.value; this._render(); }
     if (target.id === "borrower") this._borrower = target.value;
     if (target.id === "loan-copy") this._selectedCopy = target.value || null;
@@ -258,15 +384,18 @@ class DekuDealsCard extends HTMLElement {
     if (lendButton) lendButton.disabled = !this._selectedCopy || !this._borrower.trim() || this._busy;
   }
   async _call(service, data) {
-    if (!this._hass) return;
+    if (!this._hass) return false;
     this._busy = true; this._render();
+    let succeeded = false;
     try {
       await this._hass.callService("dekudeals", service, { ...data, ...(this._config.config_entry_id ? { config_entry_id: this._config.config_entry_id } : {}) });
       this._error = "";
+      succeeded = true;
     } catch (error) {
       console.error("DekuDeals card service call failed", error);
       this._error = error?.message || "The service call failed. Check Home Assistant logs and service configuration.";
     } finally { this._busy = false; this._render(); }
+    return succeeded;
   }
   async _handleClick(event) {
     const button = event.target.closest("button");
@@ -294,8 +423,11 @@ class DekuDealsCard extends HTMLElement {
     if (button.dataset.action === "resolve") { await this._call("resolve_inventory_match", { copy_id: copyId, resolution: button.dataset.resolution }); return; }
     if (button.dataset.action === "lend-selected") {
       if (!this._selectedCopy || !this._borrower.trim()) return;
-      await this._call("lend_game", { copy_id: this._selectedCopy, borrower: this._borrower.trim(), ...(this._dueDate ? { due_date: this._dueDate } : {}) });
-      this._borrower = ""; this._dueDate = ""; this._selectedCopy = null; this._render(); return;
+      const succeeded = await this._call("lend_game", { copy_id: this._selectedCopy, borrower: this._borrower.trim(), ...(this._dueDate ? { due_date: this._dueDate } : {}) });
+      if (succeeded) {
+        this._borrower = ""; this._dueDate = ""; this._selectedCopy = null;
+      }
+      this._render(); return;
     }
     if (copyId) { this._selectedCopy = copyId; this._render(); }
   }
