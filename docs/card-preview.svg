@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#132b35"/><stop offset="1" stop-color="#254f58"/></linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#567d83"/><stop offset="1" stop-color="#263f4a"/></linearGradient>
+  </defs>
+  <rect width="1200" height="640" rx="28" fill="#10191f"/>
+  <rect x="24" y="24" width="1152" height="592" rx="22" fill="url(#bg)"/>
+  <text x="66" y="94" fill="#fff" font-family="Arial,sans-serif" font-size="38" font-weight="700">My Game Collection</text>
+  <g font-family="Arial,sans-serif" text-anchor="middle">
+    <g fill="#dcebed"><rect x="66" y="126" width="240" height="82" rx="12" fill="#ffffff" fill-opacity=".12"/><rect x="326" y="126" width="240" height="82" rx="12" fill="#ffffff" fill-opacity=".12"/><rect x="586" y="126" width="240" height="82" rx="12" fill="#ffffff" fill-opacity=".12"/><rect x="846" y="126" width="288" height="82" rx="12" fill="#ffffff" fill-opacity=".12"/></g>
+    <g fill="#fff" font-size="28" font-weight="700"><text x="186" y="164">38</text><text x="446" y="164">4</text><text x="706" y="164">1</text><text x="990" y="164">2</text></g>
+    <g fill="#c4d7db" font-size="17"><text x="186" y="190">In possession</text><text x="446" y="190">Lent out</text><text x="706" y="190">Overdue</text><text x="990" y="190">Needs attention</text></g>
+  </g>
+  <g>
+    <rect x="66" y="242" width="1068" height="50" rx="10" fill="#ffffff" fill-opacity=".1"/>
+    <text x="90" y="274" fill="#eaf4f5" font-family="Arial,sans-serif" font-size="19">Collection     My copies     Loans     Review</text>
+    <g>
+      <rect x="66" y="316" width="244" height="254" rx="12" fill="url(#tile)"/><rect x="326" y="316" width="244" height="254" rx="12" fill="url(#tile)"/><rect x="586" y="316" width="244" height="254" rx="12" fill="url(#tile)"/><rect x="846" y="316" width="288" height="254" rx="12" fill="url(#tile)"/>
+      <g fill="#e6f0f1" font-family="Arial,sans-serif" text-anchor="middle"><text x="188" y="420" font-size="58">🎮</text><text x="448" y="420" font-size="58">🗡️</text><text x="708" y="420" font-size="58">🚗</text><text x="990" y="420" font-size="58">🌌</text>
+      <text x="188" y="486" font-size="20" font-weight="700">Adventure Collection</text><text x="448" y="486" font-size="20" font-weight="700">Fantasy Quest</text><text x="708" y="486" font-size="20" font-weight="700">Racing Legends</text><text x="990" y="486" font-size="20" font-weight="700">Space Odyssey</text>
+      <text x="188" y="520" font-size="15" fill="#c8dcdf">Nintendo Switch · Physical</text><text x="448" y="520" font-size="15" fill="#c8dcdf">Nintendo Switch · Digital</text><text x="708" y="520" font-size="15" fill="#c8dcdf">Nintendo Switch 2 · Physical</text><text x="990" y="520" font-size="15" fill="#c8dcdf">Nintendo Switch · Physical</text></g>
+    </g>
+  </g>
+</svg>
