@@ -7,6 +7,7 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 - Cover-art collection grid using the integration's `image` and `description` item attributes.
 - Search by game title and filter by Switch / Switch 2 and physical / digital format.
 - Physical inventory view with copy status and active borrower.
+- Register new physical copies directly from the card.
 - Lend and return actions using the integration's `dekudeals.lend_game` and `dekudeals.return_game` services.
 - Loan overview and collection reconciliation review actions.
 - Responsive layout and Home Assistant theme variables.
@@ -56,7 +57,7 @@ show_descriptions: true
 show_inventory: true
 ```
 
-The collection entity must expose an `items` array. The inventory entity must expose a `copies` array. The example entity IDs are illustrative only; HA may generate different IDs.
+The collection entity must expose an `items` array. The inventory entity must expose a `copies` array. The example entity IDs are illustrative only; HA may generate different IDs. If you have more than one DekuDeals config entry, set `config_entry_id` to the intended entry ID so service actions target the correct collection.
 
 ### Options
 
@@ -68,6 +69,7 @@ The collection entity must expose an `items` array. The inventory entity must ex
 | `overdue_entity` | No | — | Games Overdue sensor |
 | `needs_review_entity` | No | — | Inventory Needs Review sensor |
 | `unmatched_entity` | No | — | Unmatched Physical Games sensor |
+| `config_entry_id` | No | — | Specific integration config entry when multiple collections are configured |
 | `title` | No | DekuDeals Collection | Card heading |
 | `columns` | No | 4 | Collection grid columns (2–8) |
 | `show_descriptions` | No | true | Show game descriptions under cover art |
@@ -76,7 +78,7 @@ The collection entity must expose an `items` array. The inventory entity must ex
 ## Using the card
 
 - **Collection:** search by title and filter platform and format.
-- **My copies:** view registered physical copies. Select a copy, enter a borrower and optional due date, then choose **Lend selected copy**.
+- **My copies:** register a physical copy, view registered copies, and select a copy before entering a borrower and optional due date. Choose **Lend selected copy** to record the loan.
 - **Loans:** return an active loan with its **Return** button.
 - **Review:** resolve reconciliation flags as **Present**, **Not present**, or **Manual**.
 
