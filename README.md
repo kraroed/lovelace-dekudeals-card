@@ -4,6 +4,9 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 
 ## Features
 
+- Three collection layouts: the existing cover-art grid, a touch-friendly horizontal carousel, and expandable collapsed groups.
+- Collapsed groups can be organized by platform or alphabetically (A–Z).
+- Manual **Refresh collection** button to request an immediate integration refresh.
 - Portrait 2:3 Nintendo-style box-art grid using the integration's `image` and genuine item `description` attributes; artwork uses contain sizing without cropping or stretching.
 - Separate Games and DLC views, including DLC counts and parent-game metadata when available.
 - Search by game title and filter by Switch / Switch 2 and physical / digital format.
@@ -56,6 +59,8 @@ unmatched_entity: sensor.dekudeals_unmatched_physical_games
 columns: 4
 show_descriptions: true
 show_inventory: true
+view_mode: grid # grid, carousel, or collapsed
+collapsed_grouping: platform # platform or alphabetical
 ```
 
 The collection entity must expose an `items` array. The inventory entity must expose a `copies` array. The example entity IDs are illustrative only; HA may generate different IDs. If you have more than one DekuDeals config entry, set `config_entry_id` to the intended entry ID so service actions target the correct collection.
@@ -75,10 +80,13 @@ The collection entity must expose an `items` array. The inventory entity must ex
 | `columns` | No | 4 | Collection grid columns (2–8) |
 | `show_descriptions` | No | true | Show game descriptions under cover art |
 | `show_inventory` | No | true | Show inventory, loans, and review tabs |
+| `view_mode` | No | grid | Default collection layout: `grid`, `carousel`, or `collapsed` |
+| `collapsed_grouping` | No | platform | Group collapsed items by `platform` or `alphabetical` |
 
 ## Using the card
 
-- **Games / DLC:** switch between full games and DLC (including season passes and expansion packs identified by DekuDeals), then search by title and filter platform and format.
+- **Games / DLC:** switch between full games and DLC (including season passes and expansion packs identified by DekuDeals), then search by title and filter platform and format. Use the Grid, Carousel, and Collapsed controls to change layout; collapsed groups can be switched between platform and A–Z.
+- **Refresh collection:** use the button in the card heading to ask the integration to refresh the collection immediately.
 - **My copies:** register a physical copy, view registered copies, and select a copy before entering a borrower and optional due date. Choose **Lend selected copy** to record the loan.
 - **Loans:** create a loan from the dedicated form at the top of the tab, then return an active loan with its **Return** button.
 - **Review:** resolve reconciliation flags as **Present**, **Not present**, or **Manual**.
