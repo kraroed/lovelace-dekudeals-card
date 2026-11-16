@@ -227,13 +227,14 @@ class DekuDealsCard extends HTMLElement {
       if (!this._newGame.trim()) return;
       await this._call("register_copy", { game: this._newGame.trim(), platform: this._newPlatform });
       if (!this._error) this._newGame = "";
+      this._render();
       return;
     }
     if (button.dataset.action === "resolve") { await this._call("resolve_inventory_match", { copy_id: copyId, resolution: button.dataset.resolution }); return; }
     if (button.dataset.action === "lend-selected") {
       if (!this._selectedCopy || !this._borrower.trim()) return;
       await this._call("lend_game", { copy_id: this._selectedCopy, borrower: this._borrower.trim(), ...(this._dueDate ? { due_date: this._dueDate } : {}) });
-      this._borrower = ""; this._dueDate = ""; this._selectedCopy = null; return;
+      this._borrower = ""; this._dueDate = ""; this._selectedCopy = null; this._render(); return;
     }
     if (copyId) { this._selectedCopy = copyId; this._render(); }
   }
