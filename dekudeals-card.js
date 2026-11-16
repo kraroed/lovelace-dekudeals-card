@@ -56,7 +56,19 @@ class DekuDealsCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    const entityIds = [
+      this._config.collection_entity, this._config.inventory_entity,
+      this._config.lent_out_entity, this._config.overdue_entity,
+      this._config.needs_review_entity, this._config.unmatched_entity,
+    ].filter(Boolean);
+    const signature = entityIds.map((id) => {
+      const state = hass?.states?.[id];
+      return `${id}:${state?.state ?? ""}:${state?.last_updated ?? ""}`;
+    }).join("|");
+    if (signature !== this._lastHassSignature) {
+      this._lastHassSignature = signature;
+      this._render();
+    }
   }
 
   get hass() { return this._hass; }
@@ -128,7 +140,7 @@ class DekuDealsCard extends HTMLElement {
       const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />` : '<div class="no-art">Cover art unavailable</div>';
       const description = this._config.show_descriptions && item.description
         ? `<p class="description">${esc(item.description)}</p>` : "";
-      return `<article class="game">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
+      return `<article class="game" data-name="${esc(String(item.name || "").toLocaleLowerCase())}" data-platform="${esc(platformKey(item.platform))}" data-format="${esc(String(item.format || "unknown").toLocaleLowerCase())}" data-type="${item.item_type === "dlc" ? "dlc" : "game"}">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
     };
     const cards = filtered.map(renderGameCard).join("");
     const groupedItems = new Map();
@@ -212,7 +224,7 @@ class DekuDealsCard extends HTMLElement {
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
           ${filtered.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') : '<div class="empty">No items match these filters.</div>'}
-          <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown · Cover art and descriptions are supplied by the integration.</div>
+          <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}<span data-filter-count>${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown</span> · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
             <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform">${platforms.map((platform) => `<option value="${esc(platform)}" ${platformKey(this._newPlatform) === platformKey(platform) ? "selected" : ""}>${esc(platform)}</option>`).join("") || '<option value="Unknown">Unknown</option>'}</select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
@@ -248,11 +260,32 @@ class DekuDealsCard extends HTMLElement {
   _ensureCopySelection(copies) {
     if (this._selectedCopy && !copies.some((copy) => copy.copy_id === this._selectedCopy)) this._selectedCopy = null;
   }
+  _applyCollectionFilters() {
+    const cards = [...this.shadowRoot.querySelectorAll(".game")];
+    let visible = 0;
+    for (const card of cards) {
+      const matchesQuery = !this._query || card.dataset.name.includes(this._query.toLocaleLowerCase());
+      const matchesPlatform = this._platform === "all" || card.dataset.platform === this._platform;
+      const matchesFormat = this._format === "all" || card.dataset.format === this._format;
+      const matchesType = card.dataset.type === this._collectionType;
+      card.hidden = !(matchesQuery && matchesPlatform && matchesFormat && matchesType);
+      if (!card.hidden) visible += 1;
+    }
+    for (const group of this.shadowRoot.querySelectorAll(".collapsed-group")) {
+      const groupCount = group.querySelectorAll(".game:not([hidden])").length;
+      group.hidden = groupCount === 0;
+      const count = group.querySelector("summary span");
+      if (count) count.textContent = `${groupCount} ${this._collectionType === "dlc" ? "DLC items" : "games"}`;
+    }
+    const foot = this.shadowRoot.querySelector("[data-filter-count]");
+    if (foot) foot.textContent = `${visible} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown`;
+  }
+
   _handleInput(event) {
     const target = event.target;
-    if (target.id === "search") { this._query = target.value; this._render(); const input = this.shadowRoot.getElementById("search"); input?.focus(); input?.setSelectionRange(this._query.length, this._query.length); }
-    if (target.id === "platform") { this._platform = target.value; this._render(); }
-    if (target.id === "format") { this._format = target.value; this._render(); }
+    if (target.id === "search") { this._query = target.value; this._applyCollectionFilters(); }
+    if (target.id === "platform") { this._platform = target.value; this._applyCollectionFilters(); }
+    if (target.id === "format") { this._format = target.value; this._applyCollectionFilters(); }
     if (target.id === "collapsed-grouping") { this._collapsedGrouping = target.value; this._render(); }
     if (target.id === "borrower") this._borrower = target.value;
     if (target.id === "loan-copy") this._selectedCopy = target.value || null;
