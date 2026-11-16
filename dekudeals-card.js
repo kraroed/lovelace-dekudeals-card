@@ -18,6 +18,9 @@ class DekuDealsCard extends HTMLElement {
     this._selectedCopy = null;
     this._borrower = "";
     this._dueDate = "";
+    this._newGame = "";
+    this._newPlatform = "Switch";
+    this._error = "";
     this._busy = false;
     this._boundClick = (event) => this._handleClick(event);
     this._boundInput = (event) => this._handleInput(event);
@@ -35,6 +38,7 @@ class DekuDealsCard extends HTMLElement {
       overdue_entity: config.overdue_entity || "",
       needs_review_entity: config.needs_review_entity || "",
       unmatched_entity: config.unmatched_entity || "",
+      config_entry_id: config.config_entry_id || "",
       show_descriptions: config.show_descriptions !== false,
       show_inventory: config.show_inventory !== false,
       columns: Math.max(2, Math.min(8, Number(config.columns) || 4)),
@@ -162,6 +166,7 @@ class DekuDealsCard extends HTMLElement {
           <button data-view="collection" class="${this._view === "collection" ? "active" : ""}">Collection</button>
           ${this._config.show_inventory ? '<button data-view="inventory" class="' + (this._view === "inventory" ? "active" : "") + '">My copies</button><button data-view="loans" class="' + (this._view === "loans" ? "active" : "") + '">Loans</button><button data-view="review" class="' + (this._view === "review" ? "active" : "") + '">Review</button>' : ""}
         </nav>
+        ${this._error ? `<div class="error">${esc(this._error)}</div>` : ""}
         ${unavailable ? '<div class="error">Waiting for the configured DekuDeals sensors. Check both entity IDs in the card configuration.</div>' :
         this._view === "collection" ? `
           <div class="toolbar"><input id="search" type="search" placeholder="Search games…" value="${esc(this._query)}">
@@ -172,7 +177,8 @@ class DekuDealsCard extends HTMLElement {
           <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${this._items().length} collection entries · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
-            <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
+            <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform"><option ${this._newPlatform === "Switch" ? "selected" : ""}>Switch</option><option ${this._newPlatform === "Switch 2" ? "selected" : ""}>Switch 2</option><option ${this._newPlatform === "Unknown" ? "selected" : ""}>Unknown</option></select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
+            <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
             ${copyRows || '<div class="empty">No physical copies are registered yet.</div>'}
           </div>
         ` : this._view === "loans" ? '<div class="panel">' + (loanRows || '<div class="empty">No games are currently lent out.</div>') + '</div>'
@@ -197,13 +203,19 @@ class DekuDealsCard extends HTMLElement {
     if (target.id === "format") { this._format = target.value; this._render(); }
     if (target.id === "borrower") this._borrower = target.value;
     if (target.id === "due-date") this._dueDate = target.value;
+    if (target.id === "new-game") this._newGame = target.value;
+    if (target.id === "new-platform") this._newPlatform = target.value;
   }
   async _call(service, data) {
     if (!this._hass) return;
     this._busy = true; this._render();
-    try { await this._hass.callService("dekudeals", service, data); }
-    catch (error) { console.error("DekuDeals card service call failed", error); }
-    finally { this._busy = false; this._render(); }
+    try {
+      await this._hass.callService("dekudeals", service, { ...data, ...(this._config.config_entry_id ? { config_entry_id: this._config.config_entry_id } : {}) });
+      this._error = "";
+    } catch (error) {
+      console.error("DekuDeals card service call failed", error);
+      this._error = error?.message || "The service call failed. Check Home Assistant logs and service configuration.";
+    } finally { this._busy = false; this._render(); }
   }
   async _handleClick(event) {
     const button = event.target.closest("button");
@@ -211,6 +223,12 @@ class DekuDealsCard extends HTMLElement {
     if (button.dataset.view) { this._view = button.dataset.view; this._render(); return; }
     const copyId = button.dataset.copy;
     if (button.dataset.action === "return") { await this._call("return_game", { copy_id: copyId }); return; }
+    if (button.dataset.action === "register") {
+      if (!this._newGame.trim()) return;
+      await this._call("register_copy", { game: this._newGame.trim(), platform: this._newPlatform });
+      if (!this._error) this._newGame = "";
+      return;
+    }
     if (button.dataset.action === "resolve") { await this._call("resolve_inventory_match", { copy_id: copyId, resolution: button.dataset.resolution }); return; }
     if (button.dataset.action === "lend-selected") {
       if (!this._selectedCopy || !this._borrower.trim()) return;
@@ -242,6 +260,7 @@ class DekuDealsCardEditor extends HTMLElement {
       <label class="field"><span>Optional overdue count sensor</span><input name="overdue_entity" value="${esc(this._config.overdue_entity)}" placeholder="sensor.dekudeals_games_overdue"></label>
       <label class="field"><span>Optional needs-review count sensor</span><input name="needs_review_entity" value="${esc(this._config.needs_review_entity)}" placeholder="sensor.dekudeals_inventory_needs_review"></label>
       <label class="field"><span>Optional unmatched count sensor</span><input name="unmatched_entity" value="${esc(this._config.unmatched_entity)}" placeholder="sensor.dekudeals_unmatched_physical_games"></label>
+      <label class="field"><span>Optional integration config entry ID (for multiple collections)</span><input name="config_entry_id" value="${esc(this._config.config_entry_id)}"></label>
       <label class="field"><span>Card title</span><input name="title" value="${esc(this._config.title || "DekuDeals Collection")}"></label>`;
     this.shadowRoot.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
       const config = { ...this._config, [input.name]: input.value };
