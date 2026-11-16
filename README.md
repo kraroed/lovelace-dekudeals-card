@@ -21,7 +21,7 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 - The **Total Physical Copies** sensor exposing the `copies` attribute.
 - For lending and return actions, the integration's services must be loaded.
 
-The integration currently exposes five collection sensors and eight inventory sensors. Home Assistant generates entity IDs based on your instance's naming and existing entities, so use the actual IDs shown under **Developer Tools → States**.
+The integration currently exposes six collection sensors and eight inventory sensors. Home Assistant generates entity IDs based on your instance's naming and existing entities, so use the actual IDs shown under **Developer Tools → States**.
 
 ## Installation
 
