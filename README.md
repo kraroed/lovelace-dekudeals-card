@@ -14,7 +14,8 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 - Collapsed groups can be organized by platform or alphabetically (A–Z).
 - Long game descriptions are compact by default, with a two-line preview and a click-to-expand **Read more / Show less** control; expanded descriptions remain open through card refreshes when their game is still present.
 - Manual **Refresh collection** button to request an immediate integration refresh.
-- Portrait 2:3 Nintendo-style box-art grid using the integration's `image` and genuine item `description` attributes; artwork uses contain sizing without cropping or stretching.
+- Portrait 2:3 cover-art grid using the integration's `image` and genuine item `description` attributes; artwork uses contain sizing without cropping or stretching.
+- Console-specific, original portrait placeholders when cover art is missing, with distinct styling for Nintendo, PlayStation, Xbox, and PC platforms plus a neutral fallback.
 - Separate Games and DLC views, including DLC counts and parent-game metadata when available.
 - Search by game title and filter by every console/platform present in the configured collection, plus physical / digital format.
 - Physical inventory view with copy status and active borrower.
@@ -103,7 +104,7 @@ Borrower names and lending information are private local inventory data managed 
 ## Troubleshooting
 
 - **Waiting for sensors:** confirm both required entity IDs exist and have the expected attributes in Developer Tools → States.
-- **No cover art:** the integration only exposes artwork when supplied by the export or successfully retrieved from an eligible public DekuDeals item page.
+- **No cover art:** the card displays a platform-specific placeholder when the integration has no usable artwork URL. Real artwork is shown automatically when available.
 - **Buttons do nothing:** confirm the DekuDeals integration is loaded and the relevant service exists under Developer Tools → Actions.
 - **Wrong entity IDs:** entity IDs are assigned by Home Assistant and may differ from the examples above.
 
