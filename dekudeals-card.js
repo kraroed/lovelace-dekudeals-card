@@ -178,7 +178,7 @@ class DekuDealsCard extends HTMLElement {
             <select id="platform"><option value="all">All platforms</option><option value="switch" ${this._platform === "switch" ? "selected" : ""}>Switch</option><option value="switch2" ${this._platform === "switch2" ? "selected" : ""}>Switch 2</option></select>
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
-          ${filtered.length ? '<div class="grid">' + cards + '</div>' : '<div class="empty">No games match these filters.</div>'}
+          ${filtered.length ? '<div class="grid">' + cards + '</div>' : '<div class="empty">No items match these filters.</div>'}
           <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
