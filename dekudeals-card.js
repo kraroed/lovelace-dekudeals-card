@@ -107,6 +107,7 @@ class DekuDealsCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._config.collection_entity) return;
+    const renderState = this._captureRenderState();
     const collection = this._state(this._config.collection_entity);
     const inventory = this._state(this._config.inventory_entity);
     const items = this._items();
@@ -249,6 +250,7 @@ class DekuDealsCard extends HTMLElement {
           </div>`
         : '<div class="panel">' + (reviewRows.length ? reviewRows : '<div class="empty">Nothing needs review.</div>') + '</div>'}
       </ha-card>`;
+    this._restoreRenderState(renderState);
     this.shadowRoot.removeEventListener("click", this._boundClick);
     this.shadowRoot.removeEventListener("input", this._boundInput);
     this.shadowRoot.removeEventListener("change", this._boundInput);
@@ -257,6 +259,83 @@ class DekuDealsCard extends HTMLElement {
     this.shadowRoot.addEventListener("change", this._boundInput);
     this._ensureCopySelection(copies);
     if (this._view === "collection") this._applyCollectionFilters();
+  }
+
+  _captureRenderState() {
+    const active = this.shadowRoot.activeElement;
+    const focus = active && active !== this.shadowRoot ? {
+      id: active.id || "",
+      action: active.dataset?.action || "",
+      copy: active.dataset?.copy || "",
+      view: active.dataset?.view || "",
+      layout: active.dataset?.layout || "",
+      resolution: active.dataset?.resolution || "",
+      selectionStart: typeof active.selectionStart === "number" ? active.selectionStart : null,
+      selectionEnd: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
+    } : null;
+    const scroll = [...this.shadowRoot.querySelectorAll("nav,.carousel")].map((element) => ({
+      key: element.matches("nav") ? "nav" : "carousel",
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    }));
+    const expanded = [...this.shadowRoot.querySelectorAll(".collapsed-group")].map((group) => ({
+      name: group.querySelector("summary strong")?.textContent || "",
+      open: group.open,
+    }));
+    return { focus, scroll, expanded };
+  }
+
+  _restoreRenderState(state) {
+    if (!state) return;
+    for (const position of state.scroll || []) {
+      const element = position.key === "nav"
+        ? this.shadowRoot.querySelector("nav")
+        : this.shadowRoot.querySelector(".carousel");
+      if (element) {
+        element.scrollLeft = position.left;
+        element.scrollTop = position.top;
+      }
+    }
+    if (state.expanded?.length) {
+      const openGroups = new Set(state.expanded.filter((group) => group.open).map((group) => group.name));
+      for (const group of this.shadowRoot.querySelectorAll(".collapsed-group")) {
+        const name = group.querySelector("summary strong")?.textContent || "";
+        group.open = openGroups.has(name);
+      }
+    }
+    const focus = state.focus;
+    if (!focus) return;
+    let target = focus.id ? this.shadowRoot.getElementById(focus.id) : null;
+    if (!target && focus.copy) {
+      target = [...this.shadowRoot.querySelectorAll("[data-copy]")].find(
+        (element) => element.dataset.copy === focus.copy &&
+          (!focus.action || element.dataset.action === focus.action)
+      );
+    }
+    if (!target && focus.action) {
+      target = [...this.shadowRoot.querySelectorAll("[data-action]")].find(
+        (element) => element.dataset.action === focus.action &&
+          (!focus.view || element.dataset.view === focus.view) &&
+          (!focus.layout || element.dataset.layout === focus.layout) &&
+          (!focus.resolution || element.dataset.resolution === focus.resolution)
+      );
+    }
+    if (!target && focus.view) {
+      target = [...this.shadowRoot.querySelectorAll("[data-view]")].find(
+        (element) => element.dataset.view === focus.view
+      );
+    }
+    if (!target && focus.layout) {
+      target = [...this.shadowRoot.querySelectorAll("[data-layout]")].find(
+        (element) => element.dataset.layout === focus.layout
+      );
+    }
+    if (target) {
+      target.focus({ preventScroll: true });
+      if (focus.selectionStart !== null && typeof target.setSelectionRange === "function") {
+        try { target.setSelectionRange(focus.selectionStart, focus.selectionEnd); } catch (_) { /* Unsupported input type. */ }
+      }
+    }
   }
 
   _ensureCopySelection(copies) {
