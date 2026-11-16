@@ -1,5 +1,5 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.3.0";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
@@ -126,6 +126,10 @@ class DekuDealsCard extends HTMLElement {
       return `<div class="copy-row">${art}<div class="copy-main"><strong>${esc(copy.game)}</strong><small>${esc(copy.platform)} · ${badge}</small>${loan?.due_date ? `<small>Due ${esc(loan.due_date)}</small>` : ""}</div>${loan ? `<button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button>` : `<button data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>${this._selectedCopy === copy.copy_id ? "Selected" : "Select"}</button>`}</div>`;
     }).join("");
     const loanRows = lent.map((copy) => `<div class="loan-row"><div><strong>${esc(copy.game)}</strong><small>Borrowed by ${esc(copy.active_loan.borrower)} · ${copy.active_loan.due_date ? `Due ${esc(copy.active_loan.due_date)}` : "No due date"}</small></div><button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button></div>`).join("");
+    const availableCopies = copies.filter((copy) => !copy.active_loan);
+    const loanCopyOptions = availableCopies.map((copy) =>
+      `<option value="${esc(copy.copy_id)}" ${this._selectedCopy === copy.copy_id ? "selected" : ""}>${esc(copy.game)} · ${esc(copy.platform)}</option>`
+    ).join("");
     const reviewRows = copies.filter((copy) => copy.needs_review || (copy.source === "dekudeals" && copy.collection_present === false))
       .map((copy) => `<div class="review-row"><div><strong>${esc(copy.game)}</strong><small>${esc(copy.review_reason || "Collection match needs confirmation")}</small></div><div class="review-actions"><button data-action="resolve" data-resolution="present" data-copy="${esc(copy.copy_id)}">Present</button><button data-action="resolve" data-resolution="not_present" data-copy="${esc(copy.copy_id)}">Not present</button><button data-action="resolve" data-resolution="manual" data-copy="${esc(copy.copy_id)}">Manual</button></div></div>`).join("");
     this.shadowRoot.innerHTML = `
@@ -144,12 +148,12 @@ class DekuDealsCard extends HTMLElement {
         input,select{border:1px solid var(--divider-color);border-radius:8px;padding:8px;background:var(--card-background-color);color:var(--primary-text-color);min-width:0}
         .grid{display:grid;grid-template-columns:repeat(${this._config.columns},minmax(0,1fr));gap:10px;padding:0 16px 16px}
         .game{min-width:0;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:var(--card-background-color)}
-        .game img{display:block;box-sizing:border-box;width:100%;aspect-ratio:3/4;padding:8px;object-fit:contain;background:var(--secondary-background-color)}
-        .no-art{aspect-ratio:3/4;display:grid;place-items:center;background:var(--secondary-background-color);font-size:2rem}
+        .game img{display:block;box-sizing:border-box;width:100%;aspect-ratio:2/3;padding:8px;object-fit:contain;object-position:center;background:var(--secondary-background-color)}
+        .no-art{aspect-ratio:2/3;display:grid;place-items:center;background:var(--secondary-background-color);font-size:2rem}
         .game-info{padding:8px}.game-info strong{display:block;font-size:.88rem;line-height:1.25;overflow-wrap:anywhere}
         .meta,.description,small{color:var(--secondary-text-color);font-size:.75rem}.meta{margin-top:4px}.description{margin:6px 0 0;line-height:1.35}
-        .panel{padding:0 16px 16px}.copy-row,.loan-row,.review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--divider-color)}
-        .thumb{width:42px;height:56px;object-fit:cover;border-radius:5px}.thumb.blank{display:grid;place-items:center;background:var(--secondary-background-color)}
+        .panel{padding:0 16px 16px}.section-title{font-size:.95rem;margin:12px 0 4px}.copy-row,.loan-row,.review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--divider-color)}
+        .thumb{width:42px;height:63px;object-fit:contain;object-position:center;border-radius:5px;background:var(--secondary-background-color)}.thumb.blank{display:grid;place-items:center;background:var(--secondary-background-color)}
         .copy-main,.loan-row>div,.review-row>div:first-child{flex:1;min-width:0}.copy-main strong,.loan-row strong,.review-row strong{display:block}
         small{display:block;margin-top:3px}.pill{display:inline-block;border-radius:20px;padding:2px 7px;background:var(--secondary-background-color)}
         .pill.loan{background:var(--info-color,#2477a8);color:white}.pill.warn{background:var(--warning-color,#a66a00);color:white}
@@ -186,7 +190,21 @@ class DekuDealsCard extends HTMLElement {
             <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
             ${copyRows.length ? copyRows : '<div class="empty">No physical copies are registered yet. Register one above to get started.</div>'}
           </div>
-        ` : this._view === "loans" ? '<div class="panel">' + (loanRows.length ? loanRows : '<div class="empty">No games are currently lent out.</div>') + '</div>'
+        ` : this._view === "loans" ? `
+          <div class="panel">
+            <h3 class="section-title">Create a loan</h3>
+            <div class="loan-form">
+              <select id="loan-copy" aria-label="Physical copy to lend">
+                <option value="">Choose a copy…</option>${loanCopyOptions}
+              </select>
+              <input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}" aria-label="Borrower name">
+              <input id="due-date" type="date" value="${esc(this._dueDate)}" aria-label="Optional due date">
+              <button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Create loan</button>
+            </div>
+            ${availableCopies.length ? "" : '<div class="foot">All registered copies are currently lent out.</div>'}
+            <h3 class="section-title">Active loans</h3>
+            ${loanRows.length ? loanRows : '<div class="empty">No games are currently lent out.</div>'}
+          </div>`
         : '<div class="panel">' + (reviewRows.length ? reviewRows : '<div class="empty">Nothing needs review.</div>') + '</div>'}
       </ha-card>`;
     this.shadowRoot.removeEventListener("click", this._boundClick);
@@ -207,6 +225,7 @@ class DekuDealsCard extends HTMLElement {
     if (target.id === "platform") { this._platform = target.value; this._render(); }
     if (target.id === "format") { this._format = target.value; this._render(); }
     if (target.id === "borrower") this._borrower = target.value;
+    if (target.id === "loan-copy") this._selectedCopy = target.value || null;
     if (target.id === "due-date") this._dueDate = target.value;
     if (target.id === "new-game") this._newGame = target.value;
     if (target.id === "new-platform") this._newPlatform = target.value;
