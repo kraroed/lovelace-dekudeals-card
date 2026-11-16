@@ -67,17 +67,17 @@ class DekuDealsCard extends HTMLElement {
     const number = Number(raw);
     return Number.isFinite(number) ? number : fallback;
   }
-  _platform(item) { return String(item.platform || "Unknown").toLowerCase(); }
-  _format(item) { return String(item.format || "unknown").toLowerCase(); }
+  _itemPlatform(item) { return String(item.platform || "Unknown").toLowerCase(); }
+  _itemFormat(item) { return String(item.format || "unknown").toLowerCase(); }
   _filteredItems() {
     return this._items().filter((item) => {
       const title = String(item.name || "").toLowerCase();
       const matchesQuery = !this._query || title.includes(this._query.toLowerCase());
-      const platform = this._platform(item);
+      const platform = this._itemPlatform(item);
       const matchesPlatform = this._platform === "all"
         || (this._platform === "switch" && platform === "switch")
         || (this._platform === "switch2" && platform === "switch 2");
-      const matchesFormat = this._format === "all" || this._format(item) === this._format;
+      const matchesFormat = this._format === "all" || this._itemFormat(item) === this._format;
       return matchesQuery && matchesPlatform && matchesFormat;
     });
   }
@@ -98,6 +98,8 @@ class DekuDealsCard extends HTMLElement {
       copies.filter((copy) => copy.needs_review).length);
     const unmatchedCount = this._count(this._config.unmatched_entity,
       copies.filter((copy) => copy.source === "dekudeals" && copy.collection_present === false).length);
+    const attentionCount = copies.filter((copy) => copy.needs_review ||
+      (copy.source === "dekudeals" && copy.collection_present === false)).length || Math.max(reviewCount, unmatchedCount);
     const activeCount = this._count(this._config.lent_out_entity, lent.length);
     const unavailable = !collection || !inventory;
     const cards = filtered.map((item) => {
@@ -112,7 +114,7 @@ class DekuDealsCard extends HTMLElement {
       const badge = loan ? `<span class="pill loan">With ${esc(loan.borrower)}</span>` :
         copy.needs_review ? '<span class="pill warn">Needs review</span>' : '<span class="pill">In possession</span>';
       const art = isHttps(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="" loading="lazy">` : '<span class="thumb blank">🎮</span>';
-      return `<div class="copy-row">${art}<div class="copy-main"><strong>${esc(copy.game)}</strong><small>${esc(copy.platform)} · ${badge}</small>${loan?.due_date ? `<small>Due ${esc(loan.due_date)}</small>` : ""}</div>${loan ? `<button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button>` : ""}</div>`;
+      return `<div class="copy-row">${art}<div class="copy-main"><strong>${esc(copy.game)}</strong><small>${esc(copy.platform)} · ${badge}</small>${loan?.due_date ? `<small>Due ${esc(loan.due_date)}</small>` : ""}</div>${loan ? `<button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button>` : `<button data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>${this._selectedCopy === copy.copy_id ? "Selected" : "Select"}</button>`}</div>`;
     }).join("");
     const loanRows = lent.map((copy) => `<div class="loan-row"><div><strong>${esc(copy.game)}</strong><small>Borrowed by ${esc(copy.active_loan.borrower)} · ${copy.active_loan.due_date ? `Due ${esc(copy.active_loan.due_date)}` : "No due date"}</small></div><button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button></div>`).join("");
     const reviewRows = copies.filter((copy) => copy.needs_review || (copy.source === "dekudeals" && copy.collection_present === false))
@@ -153,7 +155,7 @@ class DekuDealsCard extends HTMLElement {
             <div class="stat"><b>${possession}</b><span>In possession</span></div>
             <div class="stat"><b>${activeCount}</b><span>Lent out</span></div>
             <div class="stat"><b>${overdueCount}</b><span>Overdue</span></div>
-            <div class="stat"><b>${reviewCount + unmatchedCount}</b><span>Needs attention</span></div>
+            <div class="stat"><b>${attentionCount}</b><span>Needs attention</span></div>
           </div>
         </div>
         <nav>
