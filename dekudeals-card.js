@@ -90,7 +90,7 @@ class DekuDealsCard extends HTMLElement {
     const number = Number(raw);
     return Number.isFinite(number) ? number : fallback;
   }
-  _itemPlatform(item) { return String(item.platform || "Unknown").toLowerCase(); }
+  _itemPlatform(item) { return platformKey(item.platform); }
   _itemFormat(item) { return String(item.format || "unknown").toLowerCase(); }
   _filteredItems() {
     return this._items().filter((item) => {
