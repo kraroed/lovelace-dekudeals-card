@@ -4,12 +4,12 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 
 ## Features
 
-- Cover-art collection grid using the integration's `image` and genuine item `description` attributes; artwork scales to fit without cropping.
+- Portrait 2:3 Nintendo-style box-art grid using the integration's `image` and genuine item `description` attributes; artwork uses contain sizing without cropping or stretching.
 - Separate Games and DLC views, including DLC counts and parent-game metadata when available.
 - Search by game title and filter by Switch / Switch 2 and physical / digital format.
 - Physical inventory view with copy status and active borrower.
 - Register new physical copies directly from the card.
-- Lend and return actions using the integration's `dekudeals.lend_game` and `dekudeals.return_game` services.
+- Create loans directly from the Loans tab by selecting a physical copy, entering a borrower, and optionally setting a due date; return active loans from the same tab.
 - Loan overview and collection reconciliation review actions.
 - Responsive layout and Home Assistant theme variables.
 - No external API calls, account credentials, or separate metadata fetching. All data comes from the integration's sensor attributes.
@@ -80,7 +80,7 @@ The collection entity must expose an `items` array. The inventory entity must ex
 
 - **Games / DLC:** switch between full games and DLC (including season passes and expansion packs identified by DekuDeals), then search by title and filter platform and format.
 - **My copies:** register a physical copy, view registered copies, and select a copy before entering a borrower and optional due date. Choose **Lend selected copy** to record the loan.
-- **Loans:** return an active loan with its **Return** button.
+- **Loans:** create a loan from the dedicated form at the top of the tab, then return an active loan with its **Return** button.
 - **Review:** resolve reconciliation flags as **Present**, **Not present**, or **Manual**.
 
 Borrower names and lending information are private local inventory data managed by the integration. The card displays them from the inventory sensor and submits service calls to Home Assistant; it does not send them to DekuDeals.
