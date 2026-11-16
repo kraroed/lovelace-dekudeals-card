@@ -4,6 +4,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
 const isHttps = (value) => typeof value === "string" && /^https:\/\//i.test(value);
+const platformKey = (value) => String(value || "Unknown").trim().toLocaleLowerCase();
 
 class DekuDealsCard extends HTMLElement {
   constructor() {
@@ -84,9 +85,7 @@ class DekuDealsCard extends HTMLElement {
       const title = String(item.name || "").toLowerCase();
       const matchesQuery = !this._query || title.includes(this._query.toLowerCase());
       const platform = this._itemPlatform(item);
-      const matchesPlatform = this._platform === "all"
-        || (this._platform === "switch" && platform === "switch")
-        || (this._platform === "switch2" && platform === "switch 2");
+      const matchesPlatform = this._platform === "all" || platform === this._platform;
       const matchesFormat = this._format === "all" || this._itemFormat(item) === this._format;
       const isDlc = item.item_type === "dlc";
       const matchesType = this._collectionType === "dlc" ? isDlc : !isDlc;
@@ -99,6 +98,14 @@ class DekuDealsCard extends HTMLElement {
     const collection = this._state(this._config.collection_entity);
     const inventory = this._state(this._config.inventory_entity);
     const items = this._items();
+    const platforms = [...new Set(items.map((item) => String(item.platform || "Unknown").trim() || "Unknown"))]
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }));
+    if (platforms.length && !platforms.some((platform) => platformKey(platform) === platformKey(this._newPlatform))) {
+      this._newPlatform = platforms[0];
+    }
+    const platformOptions = platforms.map((platform) =>
+      `<option value="${esc(platformKey(platform))}">${esc(platform)}</option>`
+    ).join("");
     const copies = this._copies();
     const filtered = this._filteredItems();
     const gameCount = items.filter((item) => item.item_type !== "dlc").length;
@@ -201,14 +208,14 @@ class DekuDealsCard extends HTMLElement {
           <div class="toolbar"><input id="search" type="search" placeholder="Search ${this._collectionType === "dlc" ? "DLC" : "games"}…" value="${esc(this._query)}">
             <div class="view-switch" role="group" aria-label="Collection view"><button data-layout="grid" class="${this._layout === "grid" ? "active" : ""}">Grid</button><button data-layout="carousel" class="${this._layout === "carousel" ? "active" : ""}">Carousel</button><button data-layout="collapsed" class="${this._layout === "collapsed" ? "active" : ""}">Collapsed</button></div>
             ${this._layout === "collapsed" ? `<select id="collapsed-grouping" aria-label="Group collapsed items"><option value="platform" ${this._collapsedGrouping === "platform" ? "selected" : ""}>Group by platform</option><option value="alphabetical" ${this._collapsedGrouping === "alphabetical" ? "selected" : ""}>Group A–Z</option></select>` : ""}
-            <select id="platform"><option value="all">All platforms</option><option value="switch" ${this._platform === "switch" ? "selected" : ""}>Switch</option><option value="switch2" ${this._platform === "switch2" ? "selected" : ""}>Switch 2</option></select>
+            <select id="platform"><option value="all">All platforms</option>${platformOptions.replace(/value="([^"]+)"/g, (match, value) => `value="${value}" ${this._platform === value ? "selected" : ""}`)}</select>
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
           ${filtered.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') : '<div class="empty">No items match these filters.</div>'}
           <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
-            <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform"><option ${this._newPlatform === "Switch" ? "selected" : ""}>Switch</option><option ${this._newPlatform === "Switch 2" ? "selected" : ""}>Switch 2</option><option ${this._newPlatform === "Unknown" ? "selected" : ""}>Unknown</option></select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
+            <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform">${platforms.map((platform) => `<option value="${esc(platform)}" ${platformKey(this._newPlatform) === platformKey(platform) ? "selected" : ""}>${esc(platform)}</option>`).join("") || '<option value="Unknown">Unknown</option>'}</select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
             <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
             ${copyRows.length ? copyRows : '<div class="empty">No physical copies are registered yet. Register one above to get started.</div>'}
           </div>
