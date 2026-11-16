@@ -1,5 +1,5 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.4.0";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
@@ -16,6 +16,9 @@ class DekuDealsCard extends HTMLElement {
     this._format = "all";
     this._collectionType = "game";
     this._view = "collection";
+    this._layout = "grid";
+    this._collapsedGrouping = "platform";
+    this._refreshing = false;
     this._selectedCopy = null;
     this._borrower = "";
     this._dueDate = "";
@@ -45,6 +48,8 @@ class DekuDealsCard extends HTMLElement {
       columns: Math.max(2, Math.min(8, Number(config.columns) || 4)),
       ...config,
     };
+    this._layout = ["grid", "carousel", "collapsed"].includes(this._config.view_mode) ? this._config.view_mode : "grid";
+    this._collapsedGrouping = this._config.collapsed_grouping === "alphabetical" ? "alphabetical" : "platform";
     this._render();
   }
 
@@ -111,13 +116,21 @@ class DekuDealsCard extends HTMLElement {
       (copy.source === "dekudeals" && copy.collection_present === false)).length || Math.max(reviewCount, unmatchedCount);
     const activeCount = this._count(this._config.lent_out_entity, lent.length);
     const unavailable = !collection || !inventory;
-    const cards = filtered.map((item) => {
+    const renderGameCard = (item) => {
       const title = esc(item.name || "Untitled game");
       const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />` : '<div class="no-art">Cover art unavailable</div>';
       const description = this._config.show_descriptions && item.description
         ? `<p class="description">${esc(item.description)}</p>` : "";
       return `<article class="game">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
-    }).join("");
+    };
+    const cards = filtered.map(renderGameCard).join("");
+    const groupedItems = new Map();
+    filtered.forEach((item) => {
+      const raw = this._collapsedGrouping === "alphabetical" ? (String(item.name || "").trim().charAt(0).toUpperCase().match(/[A-Z]/) || ["#"])[0] : (String(item.platform || "Unknown").trim() || "Unknown");
+      if (!groupedItems.has(raw)) groupedItems.set(raw, []);
+      groupedItems.get(raw).push(item);
+    });
+    const collapsedGroups = [...groupedItems.entries()].sort(([a],[b]) => a.localeCompare(b, undefined, {sensitivity:"base",numeric:true})).map(([name, groupItems]) => `<details class="collapsed-group"><summary><strong>${esc(name)}</strong><span>${groupItems.length} ${this._collectionType === "dlc" ? "DLC items" : "games"}</span></summary><div class="grid">${groupItems.map(renderGameCard).join("")}</div></details>`).join("");
     const copyRows = copies.map((copy) => {
       const loan = copy.active_loan;
       const badge = loan ? `<span class="pill loan">With ${esc(loan.borrower)}</span>` :
@@ -136,7 +149,7 @@ class DekuDealsCard extends HTMLElement {
       <style>
         :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,inherit)}
         ha-card{overflow:hidden;background:var(--ha-card-background,var(--card-background-color));color:var(--primary-text-color)}
-        .head{padding:16px 16px 10px}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .head{padding:16px 16px 10px}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.heading-actions{display:flex;align-items:center;gap:8px}
         h2{font-size:1.2rem;font-weight:600;margin:0}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
         .stat{background:var(--secondary-background-color);border-radius:10px;padding:9px;min-width:0}
         .stat b{display:block;font-size:1.25rem}.stat span{font-size:.75rem;color:var(--secondary-text-color)}
@@ -147,6 +160,13 @@ class DekuDealsCard extends HTMLElement {
         .toolbar{display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap}.toolbar input{flex:1;min-width:130px}
         input,select{border:1px solid var(--divider-color);border-radius:8px;padding:8px;background:var(--card-background-color);color:var(--primary-text-color);min-width:0}
         .grid{display:grid;grid-template-columns:repeat(${this._config.columns},minmax(0,1fr));gap:10px;padding:0 16px 16px}
+        .carousel{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x mandatory;padding:0 16px 16px}
+        .carousel .game{flex:0 0 clamp(138px,24vw,190px);scroll-snap-align:start}
+        .collapsed-group{margin:0 16px 9px;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden}
+        .collapsed-group summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:12px;background:var(--secondary-background-color)}
+        .collapsed-group summary::-webkit-details-marker{display:none}
+        .collapsed-group summary span{font-size:.78rem;color:var(--secondary-text-color)}
+        .collapsed-group .grid{padding:10px}
         .game{min-width:0;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:var(--card-background-color)}
         .game img{display:block;box-sizing:border-box;width:100%;aspect-ratio:2/3;padding:8px;object-fit:contain;object-position:center;background:var(--secondary-background-color)}
         .no-art{aspect-ratio:2/3;display:grid;place-items:center;background:var(--secondary-background-color);font-size:2rem}
@@ -163,7 +183,7 @@ class DekuDealsCard extends HTMLElement {
         @media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.review-row{align-items:flex-start;flex-direction:column}}
       </style>
       <ha-card>
-        <div class="head"><div class="heading"><h2>${esc(this._config.title)}</h2><span class="meta">${gameCount} games · ${dlcCount} DLC</span></div>
+        <div class="head"><div class="heading"><h2>${esc(this._config.title)}</h2><div class="heading-actions"><span class="meta">${gameCount} games · ${dlcCount} DLC</span><button data-action="refresh" ${this._refreshing ? "disabled" : ""}>${this._refreshing ? "Refreshing…" : "Refresh collection"}</button></div></div>
           <div class="stats">
             <div class="stat"><b>${possession}</b><span>In possession</span></div>
             <div class="stat"><b>${activeCount}</b><span>Lent out</span></div>
@@ -179,10 +199,12 @@ class DekuDealsCard extends HTMLElement {
         ${unavailable ? '<div class="error">Waiting for the configured DekuDeals sensors. Check both entity IDs in the card configuration.</div>' :
         this._view === "collection" ? `
           <div class="toolbar"><input id="search" type="search" placeholder="Search ${this._collectionType === "dlc" ? "DLC" : "games"}…" value="${esc(this._query)}">
+            <div class="view-switch" role="group" aria-label="Collection view"><button data-layout="grid" class="${this._layout === "grid" ? "active" : ""}">Grid</button><button data-layout="carousel" class="${this._layout === "carousel" ? "active" : ""}">Carousel</button><button data-layout="collapsed" class="${this._layout === "collapsed" ? "active" : ""}">Collapsed</button></div>
+            ${this._layout === "collapsed" ? `<select id="collapsed-grouping" aria-label="Group collapsed items"><option value="platform" ${this._collapsedGrouping === "platform" ? "selected" : ""}>Group by platform</option><option value="alphabetical" ${this._collapsedGrouping === "alphabetical" ? "selected" : ""}>Group A–Z</option></select>` : ""}
             <select id="platform"><option value="all">All platforms</option><option value="switch" ${this._platform === "switch" ? "selected" : ""}>Switch</option><option value="switch2" ${this._platform === "switch2" ? "selected" : ""}>Switch 2</option></select>
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
-          ${filtered.length ? '<div class="grid">' + cards + '</div>' : '<div class="empty">No items match these filters.</div>'}
+          ${filtered.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') : '<div class="empty">No items match these filters.</div>'}
           <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
@@ -224,6 +246,7 @@ class DekuDealsCard extends HTMLElement {
     if (target.id === "search") { this._query = target.value; this._render(); const input = this.shadowRoot.getElementById("search"); input?.focus(); input?.setSelectionRange(this._query.length, this._query.length); }
     if (target.id === "platform") { this._platform = target.value; this._render(); }
     if (target.id === "format") { this._format = target.value; this._render(); }
+    if (target.id === "collapsed-grouping") { this._collapsedGrouping = target.value; this._render(); }
     if (target.id === "borrower") this._borrower = target.value;
     if (target.id === "loan-copy") this._selectedCopy = target.value || null;
     if (target.id === "due-date") this._dueDate = target.value;
@@ -250,6 +273,15 @@ class DekuDealsCard extends HTMLElement {
     if (!button || button.disabled) return;
     if (button.dataset.collectionType) this._collectionType = button.dataset.collectionType;
     if (button.dataset.view) { this._view = button.dataset.view; this._render(); return; }
+    if (button.dataset.layout) { this._layout = button.dataset.layout; this._render(); return; }
+    if (button.dataset.action === "refresh") {
+      if (this._refreshing || !this._hass) return;
+      this._refreshing = true; this._error = ""; this._render();
+      try { await this._hass.callService("dekudeals", "refresh_collection", this._config.config_entry_id ? {config_entry_id:this._config.config_entry_id} : {}); }
+      catch (error) { console.error("DekuDeals collection refresh failed", error); this._error = error?.message || "Collection refresh failed. Check Home Assistant logs."; }
+      finally { this._refreshing = false; this._render(); }
+      return;
+    }
     const copyId = button.dataset.copy;
     if (button.dataset.action === "return") { await this._call("return_game", { copy_id: copyId }); return; }
     if (button.dataset.action === "register") {
@@ -293,9 +325,11 @@ class DekuDealsCardEditor extends HTMLElement {
       <label class="field"><span>Optional unmatched count sensor</span><input name="unmatched_entity" value="${esc(this._config.unmatched_entity)}" placeholder="sensor.dekudeals_unmatched_physical_games"></label>
       <label class="field"><span>Optional integration config entry ID (for multiple collections)</span><input name="config_entry_id" value="${esc(this._config.config_entry_id)}"></label>
       <label class="field"><span>Card title</span><input name="title" value="${esc(this._config.title || "DekuDeals Collection")}"></label>
+      <label class="field"><span>Default collection view</span><select name="view_mode"><option value="grid" ${this._config.view_mode === "carousel" || this._config.view_mode === "collapsed" ? "" : "selected"}>Grid</option><option value="carousel" ${this._config.view_mode === "carousel" ? "selected" : ""}>Carousel</option><option value="collapsed" ${this._config.view_mode === "collapsed" ? "selected" : ""}>Collapsed</option></select></label>
+      <label class="field"><span>Collapsed view grouping</span><select name="collapsed_grouping"><option value="platform" ${this._config.collapsed_grouping === "alphabetical" ? "" : "selected"}>By platform</option><option value="alphabetical" ${this._config.collapsed_grouping === "alphabetical" ? "selected" : ""}>Alphabetical (A–Z)</option></select></label>
       <label class="toggle"><input type="checkbox" name="show_inventory" ${this._config.show_inventory !== false ? "checked" : ""}> Show My Copies, Loans, and Review tabs</label>
       <label class="toggle"><input type="checkbox" name="show_descriptions" ${this._config.show_descriptions !== false ? "checked" : ""}> Show game descriptions when available</label>`;
-    this.shadowRoot.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
+    this.shadowRoot.querySelectorAll("input,select").forEach((input) => input.addEventListener("change", () => {
       const value = input.type === "checkbox" ? input.checked : input.value;
       const config = { ...this._config, [input.name]: value };
       this._config = config;
