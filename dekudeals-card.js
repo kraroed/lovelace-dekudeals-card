@@ -120,6 +120,7 @@ class DekuDealsCard extends HTMLElement {
     ).join("");
     const copies = this._copies();
     const filtered = this._filteredItems();
+    const displayItems = items.filter((item) => this._collectionType === "dlc" ? item.item_type === "dlc" : item.item_type !== "dlc");
     const gameCount = items.filter((item) => item.item_type !== "dlc").length;
     const dlcCount = items.length - gameCount;
     const lent = copies.filter((copy) => copy.active_loan);
@@ -142,9 +143,9 @@ class DekuDealsCard extends HTMLElement {
         ? `<p class="description">${esc(item.description)}</p>` : "";
       return `<article class="game" data-name="${esc(String(item.name || "").toLocaleLowerCase())}" data-platform="${esc(platformKey(item.platform))}" data-format="${esc(String(item.format || "unknown").toLocaleLowerCase())}" data-type="${item.item_type === "dlc" ? "dlc" : "game"}">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
     };
-    const cards = filtered.map(renderGameCard).join("");
+    const cards = displayItems.map(renderGameCard).join("");
     const groupedItems = new Map();
-    filtered.forEach((item) => {
+    displayItems.forEach((item) => {
       const raw = this._collapsedGrouping === "alphabetical" ? (String(item.name || "").trim().charAt(0).toUpperCase().match(/[A-Z]/) || ["#"])[0] : (String(item.platform || "Unknown").trim() || "Unknown");
       if (!groupedItems.has(raw)) groupedItems.set(raw, []);
       groupedItems.get(raw).push(item);
@@ -223,7 +224,7 @@ class DekuDealsCard extends HTMLElement {
             <select id="platform"><option value="all">All platforms</option>${platformOptions.replace(/value="([^"]+)"/g, (match, value) => `value="${value}" ${this._platform === value ? "selected" : ""}`)}</select>
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
-          ${filtered.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') : '<div class="empty">No items match these filters.</div>'}
+          ${displayItems.length ? (this._layout === "carousel" ? '<div class="carousel">' + cards + '</div>' : this._layout === "collapsed" ? collapsedGroups : '<div class="grid">' + cards + '</div>') + '<div class="empty" data-filter-empty hidden>No items match these filters.</div>' : '<div class="empty">No items in this collection view.</div>'}
           <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}<span data-filter-count>${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown</span> · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
@@ -255,6 +256,7 @@ class DekuDealsCard extends HTMLElement {
     this.shadowRoot.addEventListener("input", this._boundInput);
     this.shadowRoot.addEventListener("change", this._boundInput);
     this._ensureCopySelection(copies);
+    if (this._view === "collection") this._applyCollectionFilters();
   }
 
   _ensureCopySelection(copies) {
@@ -279,6 +281,8 @@ class DekuDealsCard extends HTMLElement {
     }
     const foot = this.shadowRoot.querySelector("[data-filter-count]");
     if (foot) foot.textContent = `${visible} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown`;
+    const empty = this.shadowRoot.querySelector("[data-filter-empty]");
+    if (empty) empty.hidden = visible > 0;
   }
 
   _handleInput(event) {
