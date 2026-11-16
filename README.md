@@ -4,7 +4,8 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 
 ## Features
 
-- Cover-art collection grid using the integration's `image` and `description` item attributes.
+- Cover-art collection grid using the integration's `image` and genuine item `description` attributes; artwork scales to fit without cropping.
+- Separate Games and DLC views, including DLC counts and parent-game metadata when available.
 - Search by game title and filter by Switch / Switch 2 and physical / digital format.
 - Physical inventory view with copy status and active borrower.
 - Register new physical copies directly from the card.
@@ -20,7 +21,7 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 - The **Total Physical Copies** sensor exposing the `copies` attribute.
 - For lending and return actions, the integration's services must be loaded.
 
-The integration currently exposes five collection sensors and eight inventory sensors. Home Assistant generates entity IDs based on your instance's naming and existing entities, so use the actual IDs shown under **Developer Tools → States**.
+The integration currently exposes six collection sensors and eight inventory sensors. Home Assistant generates entity IDs based on your instance's naming and existing entities, so use the actual IDs shown under **Developer Tools → States**.
 
 ## Installation
 
@@ -77,7 +78,7 @@ The collection entity must expose an `items` array. The inventory entity must ex
 
 ## Using the card
 
-- **Collection:** search by title and filter platform and format.
+- **Games / DLC:** switch between full games and DLC (including season passes and expansion packs identified by DekuDeals), then search by title and filter platform and format.
 - **My copies:** register a physical copy, view registered copies, and select a copy before entering a borrower and optional due date. Choose **Lend selected copy** to record the loan.
 - **Loans:** return an active loan with its **Return** button.
 - **Review:** resolve reconciliation flags as **Present**, **Not present**, or **Manual**.
