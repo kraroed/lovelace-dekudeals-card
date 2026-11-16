@@ -1,5 +1,5 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.6.0";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
@@ -140,8 +140,9 @@ class DekuDealsCard extends HTMLElement {
     const renderGameCard = (item) => {
       const title = esc(item.name || "Untitled game");
       const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />` : '<div class="no-art">Cover art unavailable</div>';
+      const descriptionKey = String(item.id || item.url || `${item.name || ""}::${item.platform || ""}`);
       const description = this._config.show_descriptions && item.description
-        ? `<p class="description">${esc(item.description)}</p>` : "";
+        ? `<details class="description" data-description-key="${esc(descriptionKey)}"><summary><span class="description-preview">${esc(item.description)}</span><span class="description-more">Read more</span><span class="description-less">Show less</span></summary><p>${esc(item.description)}</p></details>` : "";
       return `<article class="game" data-name="${esc(String(item.name || "").toLocaleLowerCase())}" data-platform="${esc(platformKey(item.platform))}" data-format="${esc(String(item.format || "unknown").toLocaleLowerCase())}" data-type="${item.item_type === "dlc" ? "dlc" : "game"}">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
     };
     const cards = displayItems.map(renderGameCard).join("");
@@ -192,7 +193,7 @@ class DekuDealsCard extends HTMLElement {
         .game img{display:block;box-sizing:border-box;width:100%;aspect-ratio:2/3;padding:8px;object-fit:contain;object-position:center;background:var(--secondary-background-color)}
         .no-art{aspect-ratio:2/3;display:grid;place-items:center;background:var(--secondary-background-color);font-size:2rem}
         .game-info{padding:8px}.game-info strong{display:block;font-size:.88rem;line-height:1.25;overflow-wrap:anywhere}
-        .meta,.description,small{color:var(--secondary-text-color);font-size:.75rem}.meta{margin-top:4px}.description{margin:6px 0 0;line-height:1.35}
+        .meta,.description,small{color:var(--secondary-text-color);font-size:.75rem}.meta{margin-top:4px}.description{margin:6px 0 0;line-height:1.35}.description summary{display:flex;align-items:flex-start;gap:5px;cursor:pointer;list-style:none}.description summary::-webkit-details-marker{display:none}.description-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;flex:1;min-width:0}.description-more,.description-less{color:var(--primary-color);white-space:nowrap;font-weight:500}.description-less{display:none}.description[open] .description-preview,.description[open] .description-more{display:none}.description[open] .description-less{display:inline}.description>p{margin:6px 0 0;line-height:1.4}
         .panel{padding:0 16px 16px}.section-title{font-size:.95rem;margin:12px 0 4px}.copy-row,.loan-row,.review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--divider-color)}
         .thumb{width:42px;height:63px;object-fit:contain;object-position:center;border-radius:5px;background:var(--secondary-background-color)}.thumb.blank{display:grid;place-items:center;background:var(--secondary-background-color)}
         .copy-main,.loan-row>div,.review-row>div:first-child{flex:1;min-width:0}.copy-main strong,.loan-row strong,.review-row strong{display:block}
@@ -283,7 +284,11 @@ class DekuDealsCard extends HTMLElement {
       name: group.querySelector("summary strong")?.textContent || "",
       open: group.open,
     }));
-    return { focus, scroll, expanded };
+    const expandedDescriptions = [...this.shadowRoot.querySelectorAll(".description[data-description-key]")].map((description) => ({
+      key: description.dataset.descriptionKey,
+      open: description.open,
+    }));
+    return { focus, scroll, expanded, expandedDescriptions };
   }
 
   _restoreRenderState(state) {
@@ -302,6 +307,12 @@ class DekuDealsCard extends HTMLElement {
       for (const group of this.shadowRoot.querySelectorAll(".collapsed-group")) {
         const name = group.querySelector("summary strong")?.textContent || "";
         group.open = openGroups.has(name);
+      }
+    }
+    if (state.expandedDescriptions?.length) {
+      const openDescriptions = new Set(state.expandedDescriptions.filter((item) => item.open).map((item) => item.key));
+      for (const description of this.shadowRoot.querySelectorAll(".description[data-description-key]")) {
+        description.open = openDescriptions.has(description.dataset.descriptionKey);
       }
     }
     const focus = state.focus;
