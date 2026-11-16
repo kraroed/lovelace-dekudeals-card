@@ -1,5 +1,5 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.2.0";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
@@ -14,6 +14,7 @@ class DekuDealsCard extends HTMLElement {
     this._query = "";
     this._platform = "all";
     this._format = "all";
+    this._collectionType = "game";
     this._view = "collection";
     this._selectedCopy = null;
     this._borrower = "";
@@ -82,7 +83,9 @@ class DekuDealsCard extends HTMLElement {
         || (this._platform === "switch" && platform === "switch")
         || (this._platform === "switch2" && platform === "switch 2");
       const matchesFormat = this._format === "all" || this._itemFormat(item) === this._format;
-      return matchesQuery && matchesPlatform && matchesFormat;
+      const isDlc = item.item_type === "dlc";
+      const matchesType = this._collectionType === "dlc" ? isDlc : !isDlc;
+      return matchesQuery && matchesPlatform && matchesFormat && matchesType;
     });
   }
 
@@ -93,6 +96,8 @@ class DekuDealsCard extends HTMLElement {
     const items = this._items();
     const copies = this._copies();
     const filtered = this._filteredItems();
+    const gameCount = items.filter((item) => item.item_type !== "dlc").length;
+    const dlcCount = items.length - gameCount;
     const lent = copies.filter((copy) => copy.active_loan);
     const possession = copies.length - lent.length;
     const overdueCount = this._count(this._config.overdue_entity, lent.filter((copy) =>
@@ -139,7 +144,7 @@ class DekuDealsCard extends HTMLElement {
         input,select{border:1px solid var(--divider-color);border-radius:8px;padding:8px;background:var(--card-background-color);color:var(--primary-text-color);min-width:0}
         .grid{display:grid;grid-template-columns:repeat(${this._config.columns},minmax(0,1fr));gap:10px;padding:0 16px 16px}
         .game{min-width:0;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:var(--card-background-color)}
-        .game img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--secondary-background-color)}
+        .game img{display:block;box-sizing:border-box;width:100%;aspect-ratio:3/4;padding:8px;object-fit:contain;background:var(--secondary-background-color)}
         .no-art{aspect-ratio:3/4;display:grid;place-items:center;background:var(--secondary-background-color);font-size:2rem}
         .game-info{padding:8px}.game-info strong{display:block;font-size:.88rem;line-height:1.25;overflow-wrap:anywhere}
         .meta,.description,small{color:var(--secondary-text-color);font-size:.75rem}.meta{margin-top:4px}.description{margin:6px 0 0;line-height:1.35}
@@ -154,7 +159,7 @@ class DekuDealsCard extends HTMLElement {
         @media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.review-row{align-items:flex-start;flex-direction:column}}
       </style>
       <ha-card>
-        <div class="head"><div class="heading"><h2>${esc(this._config.title)}</h2><span class="meta">${items.length} games</span></div>
+        <div class="head"><div class="heading"><h2>${esc(this._config.title)}</h2><span class="meta">${gameCount} games · ${dlcCount} DLC</span></div>
           <div class="stats">
             <div class="stat"><b>${possession}</b><span>In possession</span></div>
             <div class="stat"><b>${activeCount}</b><span>Lent out</span></div>
@@ -163,18 +168,18 @@ class DekuDealsCard extends HTMLElement {
           </div>
         </div>
         <nav>
-          <button data-view="collection" class="${this._view === "collection" ? "active" : ""}">Collection</button>
+          <button data-view="collection" data-collection-type="game" class="${this._view === "collection" && this._collectionType === "game" ? "active" : ""}">Games (${gameCount})</button><button data-view="collection" data-collection-type="dlc" class="${this._view === "collection" && this._collectionType === "dlc" ? "active" : ""}">DLC (${dlcCount})</button>
           ${this._config.show_inventory ? '<button data-view="inventory" class="' + (this._view === "inventory" ? "active" : "") + '">My copies</button><button data-view="loans" class="' + (this._view === "loans" ? "active" : "") + '">Loans</button><button data-view="review" class="' + (this._view === "review" ? "active" : "") + '">Review</button>' : ""}
         </nav>
         ${this._error ? `<div class="error">${esc(this._error)}</div>` : ""}
         ${unavailable ? '<div class="error">Waiting for the configured DekuDeals sensors. Check both entity IDs in the card configuration.</div>' :
         this._view === "collection" ? `
-          <div class="toolbar"><input id="search" type="search" placeholder="Search games…" value="${esc(this._query)}">
+          <div class="toolbar"><input id="search" type="search" placeholder="Search ${this._collectionType === "dlc" ? "DLC" : "games"}…" value="${esc(this._query)}">
             <select id="platform"><option value="all">All platforms</option><option value="switch" ${this._platform === "switch" ? "selected" : ""}>Switch</option><option value="switch2" ${this._platform === "switch2" ? "selected" : ""}>Switch 2</option></select>
             <select id="format"><option value="all">All formats</option><option value="physical" ${this._format === "physical" ? "selected" : ""}>Physical</option><option value="digital" ${this._format === "digital" ? "selected" : ""}>Digital</option></select>
           </div>
           ${filtered.length ? '<div class="grid">' + cards + '</div>' : '<div class="empty">No games match these filters.</div>'}
-          <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${this._items().length} collection entries · Cover art and descriptions are supplied by the integration.</div>
+          <div class="foot">${collection.attributes?.items_truncated ? "The integration has truncated this collection sensor's item list. " : ""}${filtered.length} ${this._collectionType === "dlc" ? "DLC items" : "games"} shown · Cover art and descriptions are supplied by the integration.</div>
         ` : this._view === "inventory" ? `
           <div class="panel">
             <div class="loan-form"><input id="new-game" placeholder="Register a physical game…" value="${esc(this._newGame)}"><select id="new-platform"><option ${this._newPlatform === "Switch" ? "selected" : ""}>Switch</option><option ${this._newPlatform === "Switch 2" ? "selected" : ""}>Switch 2</option><option ${this._newPlatform === "Unknown" ? "selected" : ""}>Unknown</option></select><button data-action="register" ${!this._newGame.trim() || this._busy ? "disabled" : ""}>Add copy</button></div>
@@ -224,6 +229,7 @@ class DekuDealsCard extends HTMLElement {
   async _handleClick(event) {
     const button = event.target.closest("button");
     if (!button || button.disabled) return;
+    if (button.dataset.collectionType) this._collectionType = button.dataset.collectionType;
     if (button.dataset.view) { this._view = button.dataset.view; this._render(); return; }
     const copyId = button.dataset.copy;
     if (button.dataset.action === "return") { await this._call("return_game", { copy_id: copyId }); return; }
