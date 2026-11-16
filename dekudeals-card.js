@@ -253,5 +253,5 @@ class DekuDealsCardEditor extends HTMLElement {
 if (!customElements.get("dekudeals-card")) customElements.define("dekudeals-card", DekuDealsCard);
 if (!customElements.get("dekudeals-card-editor")) customElements.define("dekudeals-card-editor", DekuDealsCardEditor);
 window.customCards = window.customCards || [];
-window.customCards.push({ type: "dekudeals-card", name: "DekuDeals Card", description: "Browse your DekuDeals collection and manage physical copies and loans.", preview: true });
+window.customCards.push({ type: "dekudeals-card", name: "DekuDeals Card", description: "Browse your DekuDeals collection and manage physical copies and loans.", preview: true, documentationURL: "https://github.com/kraroed/lovelace-dekudeals-card", issueURL: "https://github.com/kraroed/lovelace-dekudeals-card/issues", icon: "mdi:gamepad-variant" });
 console.info(`%c DEKUDEALS-CARD %c ${CARD_VERSION} `, "color:white;background:#2b6f73;font-weight:bold", "color:#2b6f73;font-weight:bold");
