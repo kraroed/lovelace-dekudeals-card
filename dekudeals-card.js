@@ -190,7 +190,21 @@ class DekuDealsCard extends HTMLElement {
             <div class="loan-form"><input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}"><input id="due-date" type="date" value="${esc(this._dueDate)}"><button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Lend selected copy</button></div>
             ${copyRows.length ? copyRows : '<div class="empty">No physical copies are registered yet. Register one above to get started.</div>'}
           </div>
-        ` : this._view === "loans" ? '<div class="panel">' + (loanRows.length ? loanRows : '<div class="empty">No games are currently lent out.</div>') + '</div>'
+        ` : this._view === "loans" ? `
+          <div class="panel">
+            <h3 class="section-title">Create a loan</h3>
+            <div class="loan-form">
+              <select id="loan-copy" aria-label="Physical copy to lend">
+                <option value="">Choose a copy…</option>${loanCopyOptions}
+              </select>
+              <input id="borrower" placeholder="Borrower name" value="${esc(this._borrower)}" aria-label="Borrower name">
+              <input id="due-date" type="date" value="${esc(this._dueDate)}" aria-label="Optional due date">
+              <button data-action="lend-selected" ${!this._selectedCopy || !this._borrower.trim() || this._busy ? "disabled" : ""}>Create loan</button>
+            </div>
+            ${availableCopies.length ? "" : '<div class="foot">All registered copies are currently lent out.</div>'}
+            <h3 class="section-title">Active loans</h3>
+            ${loanRows.length ? loanRows : '<div class="empty">No games are currently lent out.</div>'}
+          </div>`
         : '<div class="panel">' + (reviewRows.length ? reviewRows : '<div class="empty">Nothing needs review.</div>') + '</div>'}
       </ha-card>`;
     this.shadowRoot.removeEventListener("click", this._boundClick);
