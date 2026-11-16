@@ -2,7 +2,7 @@
 
 A responsive Lovelace custom card for the [DekuDeals Home Assistant integration](https://github.com/kraroed/ha-dekudeals). Browse your imported game collection with cover art and descriptions, and keep an eye on physical copies, active loans, overdue returns, and inventory review items.
 
-**Upcoming release: 0.5.0**
+**Upcoming release: 0.6.0**
 
 ![DekuDeals integration icon](https://raw.githubusercontent.com/kraroed/ha-dekudeals/main/custom_components/dekudeals/brand/icon.png)
 
@@ -12,8 +12,10 @@ A responsive Lovelace custom card for the [DekuDeals Home Assistant integration]
 
 - Three collection layouts: the existing cover-art grid, a touch-friendly horizontal carousel, and expandable collapsed groups.
 - Collapsed groups can be organized by platform or alphabetically (A–Z).
+- Long game descriptions are compact by default, with a two-line preview and a click-to-expand **Read more / Show less** control; expanded descriptions remain open through card refreshes when their game is still present.
 - Manual **Refresh collection** button to request an immediate integration refresh.
-- Portrait 2:3 Nintendo-style box-art grid using the integration's `image` and genuine item `description` attributes; artwork uses contain sizing without cropping or stretching.
+- Portrait 2:3 cover-art grid using the integration's `image` and genuine item `description` attributes; artwork uses contain sizing without cropping or stretching.
+- Console-specific, original portrait placeholders when cover art is missing, with distinct styling for Nintendo, PlayStation, Xbox, and PC platforms plus a neutral fallback.
 - Separate Games and DLC views, including DLC counts and parent-game metadata when available.
 - Search by game title and filter by every console/platform present in the configured collection, plus physical / digital format.
 - Physical inventory view with copy status and active borrower.
@@ -84,14 +86,14 @@ The collection entity must expose an `items` array. The inventory entity must ex
 | `config_entry_id` | No | — | Specific integration config entry when multiple collections are configured |
 | `title` | No | DekuDeals Collection | Card heading |
 | `columns` | No | 4 | Collection grid columns (2–8) |
-| `show_descriptions` | No | true | Show game descriptions under cover art |
+| `show_descriptions` | No | true | Show game descriptions under cover art; descriptions are collapsed by default and expandable |
 | `show_inventory` | No | true | Show inventory, loans, and review tabs |
 | `view_mode` | No | grid | Default collection layout: `grid`, `carousel`, or `collapsed` |
 | `collapsed_grouping` | No | platform | Group collapsed items by `platform` or `alphabetical` |
 
 ## Using the card
 
-- **Games / DLC:** switch between full games and DLC (including season passes and expansion packs identified by DekuDeals), then search by title and filter by any platform found in the collection and by format. Use the Grid, Carousel, and Collapsed controls to change layout; collapsed groups can be switched between platform and A–Z.
+- **Games / DLC:** switch between full games and DLC (including season passes and expansion packs identified by DekuDeals), then search by title and filter by any platform found in the collection and by format. Use the Grid, Carousel, and Collapsed controls to change layout; collapsed groups can be switched between platform and A–Z. Long descriptions show a short preview; select **Read more** to expand and **Show less** to collapse.
 - **Refresh collection:** use the button in the card heading to ask the integration to refresh the collection immediately.
 - **My copies:** register a physical copy, view registered copies, and select a copy before entering a borrower and optional due date. Choose **Lend selected copy** to record the loan.
 - **Loans:** create a loan from the dedicated form at the top of the tab, then return an active loan with its **Return** button.
@@ -102,7 +104,7 @@ Borrower names and lending information are private local inventory data managed 
 ## Troubleshooting
 
 - **Waiting for sensors:** confirm both required entity IDs exist and have the expected attributes in Developer Tools → States.
-- **No cover art:** the integration only exposes artwork when supplied by the export or successfully retrieved from an eligible public DekuDeals item page.
+- **No cover art:** the card displays a platform-specific placeholder when the integration has no usable artwork URL. Real artwork is shown automatically when available.
 - **Buttons do nothing:** confirm the DekuDeals integration is loaded and the relevant service exists under Developer Tools → Actions.
 - **Wrong entity IDs:** entity IDs are assigned by Home Assistant and may differ from the examples above.
 

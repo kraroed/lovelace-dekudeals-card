@@ -1,10 +1,41 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.6.0";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
 const isHttps = (value) => typeof value === "string" && /^https:\/\//i.test(value);
 const platformKey = (value) => String(value || "Unknown").trim().toLocaleLowerCase();
+
+// Original, text-based artwork placeholders. Match platform names flexibly because
+// DekuDeals may use different display labels for the same console family.
+const platformArtwork = (value) => {
+  const name = String(value || "Unknown").trim();
+  const key = name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const rules = [
+    { test: /switch 2|nintendo switch 2/, family: "switch2", label: "Nintendo Switch 2", mark: "S2" },
+    { test: /nintendo switch|switch/, family: "switch", label: "Nintendo Switch", mark: "NS" },
+    { test: /wii u/, family: "wiiu", label: "Wii U", mark: "Wii U" },
+    { test: /nintendo wii/, family: "wii", label: "Nintendo Wii", mark: "Wii" },
+    { test: /3ds|nintendo 3ds/, family: "3ds", label: "Nintendo 3DS", mark: "3DS" },
+    { test: /nintendo ds|\bnds\b/, family: "ds", label: "Nintendo DS", mark: "DS" },
+    { test: /playstation 5|\bps5\b/, family: "ps5", label: "PlayStation 5", mark: "PS5" },
+    { test: /playstation 4|\bps4\b/, family: "ps4", label: "PlayStation 4", mark: "PS4" },
+    { test: /playstation 3|\bps3\b/, family: "ps3", label: "PlayStation 3", mark: "PS3" },
+    { test: /playstation 2|\bps2\b/, family: "ps2", label: "PlayStation 2", mark: "PS2" },
+    { test: /playstation vita|\bvita\b|\bps vita\b/, family: "vita", label: "PlayStation Vita", mark: "VITA" },
+    { test: /playstation portable|\bpsp\b/, family: "psp", label: "PlayStation Portable", mark: "PSP" },
+    { test: /xbox series x|series x/, family: "xbox", label: "Xbox Series X", mark: "X" },
+    { test: /xbox series s|series s/, family: "xbox", label: "Xbox Series S", mark: "S" },
+    { test: /xbox one/, family: "xbox", label: "Xbox One", mark: "ONE" },
+    { test: /xbox 360/, family: "xbox360", label: "Xbox 360", mark: "360" },
+    { test: /xbox/, family: "xbox", label: "Xbox", mark: "XBOX" },
+    { test: /pc|windows|steam/, family: "pc", label: "PC Gaming", mark: "PC" },
+    { test: /mac|macos/, family: "pc", label: "Mac", mark: "MAC" },
+    { test: /playstation/, family: "playstation", label: "PlayStation", mark: "PS" },
+  ];
+  const match = rules.find((rule) => rule.test.test(key));
+  return match || { family: "generic", label: name || "Unknown platform", mark: "GAME" };
+};
 
 class DekuDealsCard extends HTMLElement {
   constructor() {
@@ -139,9 +170,13 @@ class DekuDealsCard extends HTMLElement {
     const unavailable = !collection || !inventory;
     const renderGameCard = (item) => {
       const title = esc(item.name || "Untitled game");
-      const image = isHttps(item.image) ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />` : '<div class="no-art">Cover art unavailable</div>';
+      const artwork = platformArtwork(item.platform);
+      const image = isHttps(item.image)
+        ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />`
+        : `<div class="no-art no-art--${artwork.family}" role="img" aria-label="No cover art available for ${esc(title)} on ${esc(artwork.label)}"><span class="no-art-mark">${esc(artwork.mark)}</span><span class="no-art-title">${esc(artwork.label)}</span><span class="no-art-caption">Cover art unavailable</span></div>`;
+      const descriptionKey = String(item.id || item.url || `${item.name || ""}::${item.platform || ""}`);
       const description = this._config.show_descriptions && item.description
-        ? `<p class="description">${esc(item.description)}</p>` : "";
+        ? `<details class="description" data-description-key="${esc(descriptionKey)}"><summary><span class="description-preview">${esc(item.description)}</span><span class="description-more">Read more</span><span class="description-less">Show less</span></summary><p>${esc(item.description)}</p></details>` : "";
       return `<article class="game" data-name="${esc(String(item.name || "").toLocaleLowerCase())}" data-platform="${esc(platformKey(item.platform))}" data-format="${esc(String(item.format || "unknown").toLocaleLowerCase())}" data-type="${item.item_type === "dlc" ? "dlc" : "game"}">${image}<div class="game-info"><strong title="${title}">${title}</strong><div class="meta">${esc(item.platform || "Unknown")} · ${esc(item.format || "Format unknown")}</div>${description}</div></article>`;
     };
     const cards = displayItems.map(renderGameCard).join("");
@@ -190,9 +225,9 @@ class DekuDealsCard extends HTMLElement {
         .collapsed-group .grid{padding:10px}
         .game{min-width:0;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:var(--card-background-color)}
         .game img{display:block;box-sizing:border-box;width:100%;aspect-ratio:2/3;padding:8px;object-fit:contain;object-position:center;background:var(--secondary-background-color)}
-        .no-art{aspect-ratio:2/3;display:grid;place-items:center;background:var(--secondary-background-color);font-size:2rem}
+        .no-art{box-sizing:border-box;aspect-ratio:2/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:12px;text-align:center;overflow:hidden;background:linear-gradient(155deg,var(--placeholder-top,#343a50),var(--placeholder-bottom,#171c2b));color:#fff}.no-art-mark{display:grid;place-items:center;width:66px;height:66px;border:2px solid currentColor;border-radius:18px;font-size:1.2rem;font-weight:800;letter-spacing:-.04em;box-shadow:0 5px 18px #0004}.no-art-title{font-size:.82rem;font-weight:700;line-height:1.2}.no-art-caption{font-size:.62rem;opacity:.78;line-height:1.2}.no-art--switch,.no-art--switch2{--placeholder-top:#e65b61;--placeholder-bottom:#263e75}.no-art--wii,.no-art--wiiu,.no-art--3ds,.no-art--ds{--placeholder-top:#647eae;--placeholder-bottom:#293c64}.no-art--ps5,.no-art--ps4,.no-art--ps3,.no-art--ps2,.no-art--vita,.no-art--psp,.no-art--playstation{--placeholder-top:#2869b8;--placeholder-bottom:#101e42}.no-art--xbox,.no-art--xbox360{--placeholder-top:#3b9b55;--placeholder-bottom:#123b27}.no-art--pc{--placeholder-top:#59677b;--placeholder-bottom:#202b3c}
         .game-info{padding:8px}.game-info strong{display:block;font-size:.88rem;line-height:1.25;overflow-wrap:anywhere}
-        .meta,.description,small{color:var(--secondary-text-color);font-size:.75rem}.meta{margin-top:4px}.description{margin:6px 0 0;line-height:1.35}
+        .meta,.description,small{color:var(--secondary-text-color);font-size:.75rem}.meta{margin-top:4px}.description{margin:6px 0 0;line-height:1.35}.description summary{display:flex;align-items:flex-start;gap:5px;cursor:pointer;list-style:none}.description summary::-webkit-details-marker{display:none}.description-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;flex:1;min-width:0}.description-more,.description-less{color:var(--primary-color);white-space:nowrap;font-weight:500}.description-less{display:none}.description[open] .description-preview,.description[open] .description-more{display:none}.description[open] .description-less{display:inline}.description>p{margin:6px 0 0;line-height:1.4}
         .panel{padding:0 16px 16px}.section-title{font-size:.95rem;margin:12px 0 4px}.copy-row,.loan-row,.review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--divider-color)}
         .thumb{width:42px;height:63px;object-fit:contain;object-position:center;border-radius:5px;background:var(--secondary-background-color)}.thumb.blank{display:grid;place-items:center;background:var(--secondary-background-color)}
         .copy-main,.loan-row>div,.review-row>div:first-child{flex:1;min-width:0}.copy-main strong,.loan-row strong,.review-row strong{display:block}
@@ -283,7 +318,11 @@ class DekuDealsCard extends HTMLElement {
       name: group.querySelector("summary strong")?.textContent || "",
       open: group.open,
     }));
-    return { focus, scroll, expanded };
+    const expandedDescriptions = [...this.shadowRoot.querySelectorAll(".description[data-description-key]")].map((description) => ({
+      key: description.dataset.descriptionKey,
+      open: description.open,
+    }));
+    return { focus, scroll, expanded, expandedDescriptions };
   }
 
   _restoreRenderState(state) {
@@ -302,6 +341,12 @@ class DekuDealsCard extends HTMLElement {
       for (const group of this.shadowRoot.querySelectorAll(".collapsed-group")) {
         const name = group.querySelector("summary strong")?.textContent || "";
         group.open = openGroups.has(name);
+      }
+    }
+    if (state.expandedDescriptions?.length) {
+      const openDescriptions = new Set(state.expandedDescriptions.filter((item) => item.open).map((item) => item.key));
+      for (const description of this.shadowRoot.querySelectorAll(".description[data-description-key]")) {
+        description.open = openDescriptions.has(description.dataset.descriptionKey);
       }
     }
     const focus = state.focus;
