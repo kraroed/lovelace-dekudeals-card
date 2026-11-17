@@ -1,9 +1,14 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.6.2";
+const CARD_VERSION = "0.6.3";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
-const isHttps = (value) => typeof value === "string" && /^https:\/\//i.test(value);
+// Accept trusted external HTTPS artwork and the integration's exact same-origin proxy path.
+// Reject protocol-relative URLs, arbitrary relative paths, and non-HTTPS external URLs.
+const isArtworkUrl = (value) => typeof value === "string" && (
+  /^https:\/\//i.test(value)
+  || /^\/api\/dekudeals\/artwork\/[A-Za-z0-9_-]+\?url=https%3A%2F%2Fcdn\.thegamesdb\.net%2Fimages%2Foriginal%2Fboxart%2Ffront%2F[A-Za-z0-9._-]+&sig=[a-f0-9]{64}$/i.test(value)
+);
 const platformKey = (value) => String(value || "Unknown").trim().toLocaleLowerCase();
 
 // Original, text-based artwork placeholders. Match platform names flexibly because
@@ -171,7 +176,7 @@ class DekuDealsCard extends HTMLElement {
     const renderGameCard = (item) => {
       const title = esc(item.name || "Untitled game");
       const artwork = platformArtwork(item.platform);
-      const image = isHttps(item.image)
+      const image = isArtworkUrl(item.image)
         ? `<img loading="lazy" referrerpolicy="no-referrer" src="${esc(item.image)}" alt="${title} cover art" />`
         : `<div class="no-art no-art--${artwork.family}" role="img" aria-label="No cover art available for ${esc(title)} on ${esc(artwork.label)}"><span class="no-art-mark">${esc(artwork.mark)}</span><span class="no-art-title">${esc(artwork.label)}</span><span class="no-art-caption">Cover art unavailable</span></div>`;
       const descriptionKey = String(item.id || item.url || `${item.name || ""}::${item.platform || ""}`);
@@ -191,7 +196,7 @@ class DekuDealsCard extends HTMLElement {
       const loan = copy.active_loan;
       const badge = loan ? `<span class="pill loan">With ${esc(loan.borrower)}</span>` :
         copy.needs_review ? '<span class="pill warn">Needs review</span>' : '<span class="pill">In possession</span>';
-      const art = isHttps(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="${esc(copy.game)} cover art" loading="lazy" referrerpolicy="no-referrer">` : '<span class="thumb blank">No art</span>';
+      const art = isArtworkUrl(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="${esc(copy.game)} cover art" loading="lazy" referrerpolicy="no-referrer">` : '<span class="thumb blank">No art</span>';
       return `<div class="copy-row">${art}<div class="copy-main"><strong>${esc(copy.game)}</strong><small>${esc(copy.platform)} · ${badge}</small>${loan?.due_date ? `<small>Due ${esc(loan.due_date)}</small>` : ""}</div>${loan ? `<button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button>` : `<button data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>${this._selectedCopy === copy.copy_id ? "Selected" : "Select"}</button>`}</div>`;
     }).join("");
     const loanRows = lent.map((copy) => `<div class="loan-row"><div><strong>${esc(copy.game)}</strong><small>Borrowed by ${esc(copy.active_loan.borrower)} · ${copy.active_loan.due_date ? `Due ${esc(copy.active_loan.due_date)}` : "No due date"}</small></div><button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button></div>`).join("");
