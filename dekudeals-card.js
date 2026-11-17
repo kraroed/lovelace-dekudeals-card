@@ -1,5 +1,5 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.6.0";
+const CARD_VERSION = "0.6.1";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
@@ -292,6 +292,16 @@ class DekuDealsCard extends HTMLElement {
     this.shadowRoot.addEventListener("click", this._boundClick);
     this.shadowRoot.addEventListener("input", this._boundInput);
     this.shadowRoot.addEventListener("change", this._boundInput);
+    // Attach error handlers in code rather than inline HTML attributes (CSP-safe).
+    this.shadowRoot.querySelectorAll(".game img").forEach((image) => {
+      image.addEventListener("error", () => {
+        const placeholder = document.createElement("div");
+        placeholder.className = "no-art";
+        placeholder.setAttribute("role", "img");
+        placeholder.textContent = "Cover art unavailable";
+        image.replaceWith(placeholder);
+      }, { once: true });
+    });
     this._ensureCopySelection(copies);
     if (this._view === "collection") this._applyCollectionFilters();
   }
