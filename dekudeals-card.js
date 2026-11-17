@@ -1,5 +1,5 @@
 /* DekuDeals Card — Home Assistant Lovelace custom card */
-const CARD_VERSION = "0.6.1";
+const CARD_VERSION = "0.6.2";
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[char]));
@@ -172,7 +172,7 @@ class DekuDealsCard extends HTMLElement {
       const title = esc(item.name || "Untitled game");
       const artwork = platformArtwork(item.platform);
       const image = isHttps(item.image)
-        ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />`
+        ? `<img loading="lazy" referrerpolicy="no-referrer" src="${esc(item.image)}" alt="${title} cover art" />`
         : `<div class="no-art no-art--${artwork.family}" role="img" aria-label="No cover art available for ${esc(title)} on ${esc(artwork.label)}"><span class="no-art-mark">${esc(artwork.mark)}</span><span class="no-art-title">${esc(artwork.label)}</span><span class="no-art-caption">Cover art unavailable</span></div>`;
       const descriptionKey = String(item.id || item.url || `${item.name || ""}::${item.platform || ""}`);
       const description = this._config.show_descriptions && item.description
@@ -191,7 +191,7 @@ class DekuDealsCard extends HTMLElement {
       const loan = copy.active_loan;
       const badge = loan ? `<span class="pill loan">With ${esc(loan.borrower)}</span>` :
         copy.needs_review ? '<span class="pill warn">Needs review</span>' : '<span class="pill">In possession</span>';
-      const art = isHttps(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="${esc(copy.game)} cover art" loading="lazy">` : '<span class="thumb blank">No art</span>';
+      const art = isHttps(copy.image) ? `<img class="thumb" src="${esc(copy.image)}" alt="${esc(copy.game)} cover art" loading="lazy" referrerpolicy="no-referrer">` : '<span class="thumb blank">No art</span>';
       return `<div class="copy-row">${art}<div class="copy-main"><strong>${esc(copy.game)}</strong><small>${esc(copy.platform)} · ${badge}</small>${loan?.due_date ? `<small>Due ${esc(loan.due_date)}</small>` : ""}</div>${loan ? `<button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button>` : `<button data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>${this._selectedCopy === copy.copy_id ? "Selected" : "Select"}</button>`}</div>`;
     }).join("");
     const loanRows = lent.map((copy) => `<div class="loan-row"><div><strong>${esc(copy.game)}</strong><small>Borrowed by ${esc(copy.active_loan.borrower)} · ${copy.active_loan.due_date ? `Due ${esc(copy.active_loan.due_date)}` : "No due date"}</small></div><button data-action="return" data-copy="${esc(copy.copy_id)}" ${this._busy ? "disabled" : ""}>Return</button></div>`).join("");
