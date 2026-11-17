@@ -2,9 +2,9 @@
 
 A responsive Lovelace custom card for the [DekuDeals Home Assistant integration](https://github.com/kraroed/ha-dekudeals). Browse your imported game collection with cover art and descriptions, and keep an eye on physical copies, active loans, overdue returns, and inventory review items.
 
-**Release: 0.6.1**
+**Release: 0.6.2**
 
-Version 0.6.1 replaces failed remote cover images with an accessible “Cover art unavailable” placeholder, preventing broken-image icons from appearing in the game grid.
+Version 0.6.2 prevents image CDNs from receiving a referrer when the card loads cover art. Version 0.6.1 also replaces failed remote cover images with an accessible “Cover art unavailable” placeholder, preventing broken-image icons from appearing in the game grid.
 
 ![DekuDeals integration icon](https://raw.githubusercontent.com/kraroed/ha-dekudeals/main/custom_components/dekudeals/brand/icon.png)
 
