@@ -172,7 +172,7 @@ class DekuDealsCard extends HTMLElement {
       const title = esc(item.name || "Untitled game");
       const artwork = platformArtwork(item.platform);
       const image = isHttps(item.image)
-        ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('div'),{className:'no-art',role:'img',textContent:'Cover art unavailable'}))" />`
+        ? `<img loading="lazy" src="${esc(item.image)}" alt="${title} cover art" />`
         : `<div class="no-art no-art--${artwork.family}" role="img" aria-label="No cover art available for ${esc(title)} on ${esc(artwork.label)}"><span class="no-art-mark">${esc(artwork.mark)}</span><span class="no-art-title">${esc(artwork.label)}</span><span class="no-art-caption">Cover art unavailable</span></div>`;
       const descriptionKey = String(item.id || item.url || `${item.name || ""}::${item.platform || ""}`);
       const description = this._config.show_descriptions && item.description
@@ -292,6 +292,16 @@ class DekuDealsCard extends HTMLElement {
     this.shadowRoot.addEventListener("click", this._boundClick);
     this.shadowRoot.addEventListener("input", this._boundInput);
     this.shadowRoot.addEventListener("change", this._boundInput);
+    // Attach error handlers in code rather than inline HTML attributes (CSP-safe).
+    this.shadowRoot.querySelectorAll(".game img").forEach((image) => {
+      image.addEventListener("error", () => {
+        const placeholder = document.createElement("div");
+        placeholder.className = "no-art";
+        placeholder.setAttribute("role", "img");
+        placeholder.textContent = "Cover art unavailable";
+        image.replaceWith(placeholder);
+      }, { once: true });
+    });
     this._ensureCopySelection(copies);
     if (this._view === "collection") this._applyCollectionFilters();
   }
